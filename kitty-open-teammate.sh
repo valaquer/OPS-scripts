@@ -6,19 +6,27 @@
 # @raycast.mode silent
 # @raycast.argument1 { "type": "text", "placeholder": "Teammate name" }
 
-# Boss's wakeup prompt — {NAME} is substituted with the teammate's title-case name at launch.
-
 KITTEN="/opt/homebrew/bin/kitten"
 CLAUDE="/Users/d.patnaik/.local/bin/claude"
 OPENCODE="/Users/d.patnaik/.opencode/bin/opencode"
 HOMEDIR="/Users/d.patnaik/honeybloom"
 JANUS_CSV="/Users/d.patnaik/honeybloom/rio/janus-config.csv"
-WAKEUP_PROMPT_TEMPLATE='{NAME}, hi. A few important announcements.
+
+# Boss's wakeup prompt formatted as Facade structured metadata.
+# Teammates see this as a Facade message and naturally reply via post_to_facade.
+build_wakeup_message() {
+    local name="$1" title="$2"
+    local ts
+    ts="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+    local body="${title}, hi. A few important announcements.
 [1] Your CLAUDE, PLAYBOOK AND LOGBOOK are already loaded into context. No need to call Read on them again. You have a generous 1M context window so internalize the files.
 [2] Your knowledge cutoff is nearly a year old. Keep this in mind
 [3] This is the start of a new session. Use judgement to determine the time that has elapsed between the end of the last session and the start of this session.
 [4] In every turn, you will receive the current timestamp and a directive to be succinct and productive.
-Bring your A-game!'
+[5] Facade is the only prescribed way to communicate with Boss and other teammates. Do not output text directly because then it only shows up in the terminal and no one can read it there. Boss and all your teammates are in the Facade software, therefore use the Facade MCP to send your messages.
+Bring your A-game!"
+    printf 'sender: boss\nroom: direct-%s\ntimestamp: %s\nbody: %s' "$name" "$ts" "$body"
+}
 
 # --- Socket Discovery ---
 
@@ -93,7 +101,8 @@ launch_tab() {
         args+=("/bin/zsh" "-l" "-c"
                "$OPENCODE")
     else
-        local wakeup_prompt="${WAKEUP_PROMPT_TEMPLATE//\{NAME\}/$title}"
+        local wakeup_prompt
+        wakeup_prompt="$(build_wakeup_message "$name" "$title")"
         args+=("/bin/zsh" "-l" "-c"
                "$CLAUDE --dangerously-skip-permissions \"$wakeup_prompt\"")
     fi
