@@ -220,6 +220,9 @@ if [ -z "$SOCKET" ]; then
     fi
 fi
 
+# Capture frontmost app before any Kitty operations (restore at end)
+FRONT_APP="$(osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true' 2>/dev/null)"
+
 EXISTING="$(get_existing_teammates "$SOCKET")"
 
 if [ "$(echo "$PAIR_INFO" | awk '{print $1}')" = "SINGLE" ]; then
@@ -227,9 +230,7 @@ if [ "$(echo "$PAIR_INFO" | awk '{print $1}')" = "SINGLE" ]; then
     NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
     TITLE="$(echo "$PAIR_INFO" | awk '{print $3}')"
 
-    if echo "$EXISTING" | grep -qx "$NAME"; then
-        focus_tab "$SOCKET" "$NAME"
-    else
+    if ! echo "$EXISTING" | grep -qx "$NAME"; then
         launch_tab "$SOCKET" "$NAME" "$TITLE" "no" ""
         apply_tab_color "$SOCKET" "$NAME"
         notify_facade "$NAME"
@@ -248,9 +249,7 @@ else
         else
             SOLO_NAME="$RIGHT_NAME"; SOLO_TITLE="$RIGHT_TITLE"
         fi
-        if echo "$EXISTING" | grep -qx "$SOLO_NAME"; then
-            focus_tab "$SOCKET" "$SOLO_NAME"
-        else
+        if ! echo "$EXISTING" | grep -qx "$SOLO_NAME"; then
             launch_tab "$SOCKET" "$SOLO_NAME" "$SOLO_TITLE" "no" ""
             apply_tab_color "$SOCKET" "$SOLO_NAME"
             notify_facade "$SOLO_NAME"
@@ -262,8 +261,7 @@ else
         echo "$EXISTING" | grep -qx "$RIGHT_NAME" && RIGHT_EXISTS=true
 
         if $LEFT_EXISTS && $RIGHT_EXISTS; then
-            # Both exist — focus the one Boss typed
-            focus_tab "$SOCKET" "$INPUT"
+            : # Both exist — nothing to do
         elif ! $LEFT_EXISTS && ! $RIGHT_EXISTS; then
             # Neither exists — open both
             launch_tab "$SOCKET" "$LEFT_NAME" "$LEFT_TITLE" "yes" ""
@@ -285,6 +283,11 @@ else
             fi
         fi
     fi
+fi
+
+# Restore frontmost app (prevents Kitty from stealing focus from Safari/Facade)
+if [ -n "$FRONT_APP" ]; then
+    osascript -e "tell application \"$FRONT_APP\" to activate" 2>/dev/null || true
 fi
 
 # Close the default blank tab that Kitty opens on launch
