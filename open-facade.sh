@@ -5,6 +5,10 @@
 # @raycast.title Facade
 # @raycast.mode silent
 
+# Kill any existing vite dev processes (prevents zombie accumulation)
+pkill -f "vite dev" 2>/dev/null || true
+sleep 1
+
 if ! curl -s -o /dev/null http://localhost:51730 2>/dev/null; then
     lsof -ti :51730 | xargs kill -9 2>/dev/null || true
     nohup bash -c 'cd /Users/d.patnaik/honeybloom/natalie/Facade && exec npm run dev -- --port 51730' > /tmp/facade-dev.log 2>&1 &
