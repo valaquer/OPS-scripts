@@ -1,0 +1,5 @@
+matches:
+  - trigger: "+scr"
+    replace: "View the latest screenshot in /Users/d.patnaik/honeybloom/screenshots/"
+  - trigger: "+p"
+    replace: "Present it to me in simple language and self-explanatory sentences. Strip out the unnecessary jargon. I need to make critical decisions with this information so also don't dumb it down. Present in chunks and not all at once so that I can ask questions and dive deeper."
