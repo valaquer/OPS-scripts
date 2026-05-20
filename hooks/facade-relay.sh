@@ -2,31 +2,37 @@
 # PostToolUse hook: relay tool activity to Facade for live mirror.
 # Zero cost when inactive — checks flag file and exits immediately if absent.
 
-INPUT=$(cat)
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
-[[ -z "$CWD" ]] && CWD="$PWD"
-
-TEAMMATE=""
-if [[ -n "$CWD" ]]; then
-    TEAMMATE=$(basename "$CWD")
-fi
-
-# Check if live mirror is active globally (persists across restart/reboot)
+# Global live mirror flag — if absent, exit immediately
 GLOBAL_FLAG="/Users/d.patnaik/honeybloom/library/facade/livemirror-global"
 [[ ! -f "$GLOBAL_FLAG" ]] && exit 0
-ROOM="global"
 
-# Extract tool call data from stdin JSON
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-[[ "$TOOL_NAME" == *"post_to_facade"* ]] && exit 0
-TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}' 2>/dev/null)
-TOOL_OUTPUT=$(echo "$INPUT" | jq -r '.tool_output // empty' 2>/dev/null)
+# OpenCode sets OPENCODE_HOOK_TYPE env var. Use env vars directly, skip stdin.
+if [[ -n "${OPENCODE_HOOK_TYPE:-}" ]]; then
+    TEAMMATE=$(basename "$PWD")
+    TOOL_NAME="${OPENCODE_TOOL_NAME:-}"
+    [[ "$TOOL_NAME" == *"honeybloom-facade"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
+    TOOL_INPUT='{}'
+    TOOL_OUTPUT="${OPENCODE_TOOL_OUTPUT:-}"
+else
+    # Claude Code: read stdin JSON
+    INPUT=$(cat)
+    CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+    [[ -z "$CWD" ]] && CWD="$PWD"
+    TEAMMATE=$(basename "$CWD")
+    TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+    [[ "$TOOL_NAME" == *"honeybloom-facade"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
+    TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}' 2>/dev/null)
+    TOOL_OUTPUT=$(echo "$INPUT" | jq -r '.tool_output // empty' 2>/dev/null)
+fi
 
-# Suppress relay if tool I/O contains sensitive file paths (FP-12)
-COMBINED="${TOOL_INPUT}${TOOL_OUTPUT}"
-if echo "$COMBINED" | grep -qiE 'auth\.json|credentials\.json|\.env|tokens/|\.keys|secret|apikey|password|bitwarden|keychain|bearer|authorization'; then
+# FP-12 Credential Relay filter — suppress relay for sensitive file paths
+COMBINED="${TOOL_INPUT} ${TOOL_OUTPUT}"
+if echo "$COMBINED" | grep -qiE 'auth\.json|credentials\.json|\.env|tokens/|\.keys|secret|apikey|api_key|api-key|\.pem|\.p12|password|bitwarden|keychain|bearer|authorization'; then
     exit 0
 fi
+
+# Determine room — use active huddle room if teammate is in one, otherwise direct room
+ROOM="direct-${TEAMMATE}"
 
 # POST to Facade — fire and forget
 curl -s -o /dev/null -X POST http://localhost:51730/api/tool-activity \
