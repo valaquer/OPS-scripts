@@ -22,6 +22,12 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
 TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}' 2>/dev/null)
 TOOL_OUTPUT=$(echo "$INPUT" | jq -r '.tool_output // empty' 2>/dev/null)
 
+# Suppress relay if tool I/O contains sensitive file paths (FP-12)
+COMBINED="${TOOL_INPUT}${TOOL_OUTPUT}"
+if echo "$COMBINED" | grep -qiE 'auth\.json|credentials\.json|\.env|tokens/|\.keys|secret|apikey|password|bitwarden|keychain|bearer|authorization'; then
+    exit 0
+fi
+
 # POST to Facade — fire and forget
 curl -s -o /dev/null -X POST http://localhost:51730/api/tool-activity \
     -H "Content-Type: application/json" \
