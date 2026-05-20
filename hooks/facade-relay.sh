@@ -1,1 +1,1 @@
-../hooks/facade-relay.sh
+../../hooks/facade-relay.sh
