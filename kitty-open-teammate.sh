@@ -124,7 +124,7 @@ focus_tab() {
 get_tab_colors() {
     local name="$1"
     case "$name" in
-        dante|rio|gunnar|kirby|guru|ananya|claire|felix|hana|samara|noah|katja)
+        dante|rio|gunnar|kirby|guru|ananya|claire|felix|hana|samara|katja)
             echo "#8B0000 #5C0000" ;;
         juno)
             echo "#2E7D32 #1B5E20" ;;
@@ -173,7 +173,6 @@ get_pair() {
         klara)          echo "SINGLE klara Klara" ;;
         natalie)        echo "SINGLE natalie Natalie" ;;
         nico)           echo "SINGLE nico Nico" ;;
-        noah)           echo "SINGLE noah Noah" ;;
         richie)         echo "SINGLE richie Richie" ;;
         samara)         echo "SINGLE samara Samara" ;;
         sandbox)        echo "SINGLE sandbox sandbox" ;;
