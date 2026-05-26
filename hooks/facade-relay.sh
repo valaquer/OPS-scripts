@@ -14,7 +14,6 @@ if [[ -n "${OPENCODE_HOOK_TYPE:-}" ]]; then
     TOOL_INPUT="${OPENCODE_TOOL_INPUT:-}"
     [[ -z "$TOOL_INPUT" ]] && TOOL_INPUT='{}'
     TOOL_OUTPUT="${OPENCODE_TOOL_OUTPUT:-}"
-
 else
     # Claude Code: read stdin JSON
     INPUT=$(cat)
@@ -59,10 +58,27 @@ case "$TOOL_NAME" in
     fi
     ;;
   [Gg]rep)
-    SUMMARY="Searched file contents"
+    PT=$(echo "$TOOL_INPUT" | jq -r '.pattern // ""' 2>/dev/null)
+    FP=$(echo "$TOOL_OUTPUT" | sed -n '2s/:$//p' | head -1)
+    if [[ -n "$PT" && -n "$FP" ]]; then
+      FP="${FP##*/}"
+      SUMMARY="Searched $FP for '$PT'"
+    elif [[ -n "$PT" ]]; then
+      SUMMARY="Searched for '$PT'"
+    elif [[ -n "$FP" ]]; then
+      FP="${FP##*/}"
+      SUMMARY="Searched $FP"
+    else
+      SUMMARY="Searched file contents"
+    fi
     ;;
-  [Gg]lob|glob)
-    SUMMARY="Found matching files"
+  [Gg]lob)
+    MATCH_COUNT=$(echo "$TOOL_OUTPUT" | grep -c '^/' 2>/dev/null || echo 0)
+    if [[ "$MATCH_COUNT" -gt 0 ]]; then
+      SUMMARY="Found $MATCH_COUNT matching files"
+    else
+      SUMMARY="Found matching files"
+    fi
     ;;
   *[Rr]eddit*)
     URL=$(echo "$TOOL_INPUT" | jq -r '.url // ""' 2>/dev/null)
