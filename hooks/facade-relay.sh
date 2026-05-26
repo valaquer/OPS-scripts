@@ -126,6 +126,14 @@ case "$TOOL_NAME" in
   *[Vv]ision*|*vision*)
     SUMMARY="Analyzed image"
     ;;
+  [Ss]kill)
+    SK=$(echo "$TOOL_INPUT" | jq -r '.name // ""' 2>/dev/null)
+    if [[ -n "$SK" ]]; then
+      SUMMARY="Loaded skill: $SK"
+    else
+      SUMMARY="Loaded skill"
+    fi
+    ;;
 esac
 
 # Determine room — use active huddle room if teammate is in one, otherwise direct room
