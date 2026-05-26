@@ -124,15 +124,15 @@ focus_tab() {
 get_tab_colors() {
     local name="$1"
     case "$name" in
-        dante|rio|gunnar|kirby|guru|ananya|claire|felix|hana|samara|zara|noah|katja)
+        dante|rio|gunnar|kirby|guru|ananya|claire|felix|hana|samara|noah|katja)
             echo "#8B0000 #5C0000" ;;
-        ezra|theo|juno|vera|isa)
+        juno)
             echo "#2E7D32 #1B5E20" ;;
-        chica|lea|sierra|nash|pike|eva|daksh|quinn|wyatt|omar|edgar)
+        chica|sierra|pike|eva|daksh|wyatt|nico)
             echo "#1565C0 #0D47A1" ;;
         richie)
             echo "#B8860B #8B6914" ;;
-        natalie|klara|ines)
+        natalie|klara|ines|andrea)
             echo "#008080 #006060" ;;
         sandbox)
             echo "#808080 #606060" ;;
@@ -158,29 +158,25 @@ get_pair() {
     local input="$1"
     case "$input" in
         chica|rio)      echo "chica Chica rio Rio" ;;
-        edgar|isa)      echo "edgar Edgar isa Isa" ;;
-        lea|theo)       echo "lea Lea theo Theo" ;;
         sierra|dante)   echo "sierra Sierra dante Dante" ;;
         eva|kirby)      echo "eva Eva kirby Kirby" ;;
         daksh|guru)     echo "daksh Daksh guru Guru" ;;
-        ines)           echo "SINGLE ines Ines" ;;
-        nash|ezra)      echo "nash Nash ezra Ezra" ;;
         pike|juno)      echo "pike Pike juno Juno" ;;
-        quinn|vera)     echo "quinn Quinn vera Vera" ;;
         wyatt|hana)     echo "wyatt Wyatt hana Hana" ;;
-        omar|zara)      echo "omar Omar zara Zara" ;;
         ananya)         echo "SINGLE ananya Ananya" ;;
+        andrea)         echo "SINGLE andrea Andrea" ;;
         claire)         echo "SINGLE claire Claire" ;;
         felix)          echo "SINGLE felix Felix" ;;
         gunnar)         echo "SINGLE gunnar Gunnar" ;;
-        richie)         echo "SINGLE richie Richie" ;;
+        ines)           echo "SINGLE ines Ines" ;;
         katja)          echo "SINGLE katja Katja" ;;
-
-        noah)           echo "SINGLE noah Noah" ;;
-        natalie)        echo "SINGLE natalie Natalie" ;;
         klara)          echo "SINGLE klara Klara" ;;
-        sandbox)        echo "SINGLE sandbox sandbox" ;;
+        natalie)        echo "SINGLE natalie Natalie" ;;
+        nico)           echo "SINGLE nico Nico" ;;
+        noah)           echo "SINGLE noah Noah" ;;
+        richie)         echo "SINGLE richie Richie" ;;
         samara)         echo "SINGLE samara Samara" ;;
+        sandbox)        echo "SINGLE sandbox sandbox" ;;
         *)              echo "" ;;
     esac
 }
