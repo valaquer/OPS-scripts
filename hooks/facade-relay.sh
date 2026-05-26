@@ -14,6 +14,13 @@ if [[ -n "${OPENCODE_HOOK_TYPE:-}" ]]; then
     TOOL_INPUT="${OPENCODE_TOOL_INPUT:-}"
     [[ -z "$TOOL_INPUT" ]] && TOOL_INPUT='{}'
     TOOL_OUTPUT="${OPENCODE_TOOL_OUTPUT:-}"
+    # Fallback: read buffered tool input from PreToolUse hook (env var is always {})
+    if [[ "$TOOL_INPUT" == '{}' ]]; then
+        BUFFERED=$(cat "/tmp/facade-tool-input-${TEAMMATE}" 2>/dev/null || echo "")
+        if [[ -n "$BUFFERED" && "$BUFFERED" != '{}' ]]; then
+            TOOL_INPUT="$BUFFERED"
+        fi
+    fi
 else
     # Claude Code: read stdin JSON
     INPUT=$(cat)
@@ -78,6 +85,32 @@ case "$TOOL_NAME" in
       SUMMARY="Found $MATCH_COUNT matching files"
     else
       SUMMARY="Found matching files"
+    fi
+    ;;
+  [Bb]ash)
+    CMD=$(echo "$TOOL_INPUT" | jq -r '.command // ""' 2>/dev/null)
+    if [[ -n "$CMD" ]]; then
+      SUMMARY="Ran: ${CMD:0:80}"
+    else
+      SUMMARY="Ran bash command"
+    fi
+    ;;
+  [Ww]rite)
+    FP=$(echo "$TOOL_INPUT" | jq -r '.filePath // ""' 2>/dev/null)
+    if [[ -n "$FP" ]]; then
+      FP="${FP##*/}"
+      SUMMARY="Wrote $FP"
+    else
+      SUMMARY="Wrote file"
+    fi
+    ;;
+  [Ee]dit)
+    FP=$(echo "$TOOL_INPUT" | jq -r '.filePath // ""' 2>/dev/null)
+    if [[ -n "$FP" ]]; then
+      FP="${FP##*/}"
+      SUMMARY="Edited $FP"
+    else
+      SUMMARY="Edited file"
     fi
     ;;
   *[Rr]eddit*)
