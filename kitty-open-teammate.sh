@@ -97,12 +97,12 @@ launch_tab() {
         return 1
     fi
 
+    local wakeup_prompt
+    wakeup_prompt="$(build_wakeup_message "$name" "$title")"
     if [[ "$harness" == *"OpenCode"* ]]; then
         args+=("/bin/zsh" "-l" "-c"
-               "$OPENCODE")
+               "$OPENCODE --prompt \"$wakeup_prompt\"")
     else
-        local wakeup_prompt
-        wakeup_prompt="$(build_wakeup_message "$name" "$title")"
         args+=("/bin/zsh" "-l" "-c"
                "$CLAUDE --dangerously-skip-permissions \"$wakeup_prompt\"")
     fi
