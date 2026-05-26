@@ -6,6 +6,14 @@
 RESPONSE_TEXT=$(cat)
 [[ -z "$RESPONSE_TEXT" ]] && exit 0
 
+# Junk filter: ≤10 words and contains sit-out keywords → skip
+WORD_COUNT=$(echo "$RESPONSE_TEXT" | wc -w | tr -d ' ')
+if [[ "$WORD_COUNT" -le 10 ]]; then
+  if echo "$RESPONSE_TEXT" | grep -qiE '[[:<:]](queue|acknowledged|holding|waiting|standing|token)[[:>:]]|nothing to add'; then
+    exit 0
+  fi
+fi
+
 TEAMMATE=$(basename "$PWD")
 
 curl -s -o /dev/null -X POST http://localhost:51730/api/tool-activity \
