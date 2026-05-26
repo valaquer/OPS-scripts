@@ -16,7 +16,7 @@ set -euo pipefail
 
 DEPLOY_PATH="$HOME/.opencode/bin/opencode"
 BACKUP_PATH="$HOME/.opencode/bin/opencode.upstream"
-RELEASE_TAG="v1.14.30-honeybloom-5"
+RELEASE_TAG="v1.14.30-honeybloom-6"
 RELEASE_REPO="valaquer/opencode-fork"
 FORK_DIR="$HOME/honeybloom/chica/opencode-fork"
 BUILD_SCRIPT="$FORK_DIR/build-fork.sh"
