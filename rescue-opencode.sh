@@ -3,7 +3,7 @@
 # Restores ~/.opencode/bin/opencode from the most reliable source available.
 #
 # Tiers (used automatically unless --tier is specified):
-#   1 — Download from GitHub Release (valaquer/opencode-fork v1.14.30-honeybloom)
+#   1 — Download from GitHub Release (valaquer/opencode-fork v1.14.30-honeybloom-5)
 #   2 — Rebuild from local source + patch (chica/opencode-fork/)
 #   3 — Fall back to upstream backup (~/.opencode/bin/opencode.upstream)
 #
@@ -16,8 +16,8 @@ set -euo pipefail
 
 DEPLOY_PATH="$HOME/.opencode/bin/opencode"
 BACKUP_PATH="$HOME/.opencode/bin/opencode.upstream"
-RELEASE_TAG="v1.14.30-honeybloom-3"
-RELEASE_REPO="valaquer/opencode-fork-v2"
+RELEASE_TAG="v1.14.30-honeybloom-5"
+RELEASE_REPO="valaquer/opencode-fork"
 FORK_DIR="$HOME/honeybloom/chica/opencode-fork"
 BUILD_SCRIPT="$FORK_DIR/build-fork.sh"
 
