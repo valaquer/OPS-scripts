@@ -14,6 +14,7 @@ if [[ -n "${OPENCODE_HOOK_TYPE:-}" ]]; then
     TOOL_INPUT="${OPENCODE_TOOL_INPUT:-}"
     [[ -z "$TOOL_INPUT" ]] && TOOL_INPUT='{}'
     TOOL_OUTPUT="${OPENCODE_TOOL_OUTPUT:-}"
+
 else
     # Claude Code: read stdin JSON
     INPUT=$(cat)
@@ -40,21 +41,30 @@ if echo "$COMBINED" | grep -qiE 'auth\.json|credentials\.json|\.env[^a-z]|tokens
 fi
 
 # Generate summary for read-only tool activity
+# OpenCode passes lowercase tool names and TOOL_INPUT is always {} (env var limitation).
+# Use generic summaries since file/pattern details aren't available via env vars.
 SUMMARY=""
 case "$TOOL_NAME" in
-  Read)
-    FP=$(echo "$TOOL_INPUT" | jq -r '.filePath // (.filePaths // [])[0] // ""' 2>/dev/null)
-    if [[ -n "$FP" ]]; then SUMMARY="Read $FP"; else SUMMARY="Read files"; fi
+  [Rr]ead)
+    FP=$(echo "$TOOL_OUTPUT" | sed -n 's/.*<path>\([^<]*\)<\/path>.*/\1/p' | head -1)
+    if [[ -n "$FP" ]]; then
+      FP="${FP##*/}"
+      if echo "$TOOL_OUTPUT" | grep -qE '\(Showing lines [0-9]+[-–][0-9]+ of [0-9]+'; then
+        SUMMARY="Read $FP (partial)"
+      else
+        SUMMARY="Read $FP (full)"
+      fi
+    else
+      SUMMARY="Read files"
+    fi
     ;;
-  Grep)
-    PT=$(echo "$TOOL_INPUT" | jq -r '.pattern // ""' 2>/dev/null)
-    if [[ -n "$PT" ]]; then SUMMARY="Searched for '$PT'"; else SUMMARY="Searched file contents"; fi
+  [Gg]rep)
+    SUMMARY="Searched file contents"
     ;;
-  Glob)
-    PT=$(echo "$TOOL_INPUT" | jq -r '.pattern // ""' 2>/dev/null)
-    if [[ -n "$PT" ]]; then SUMMARY="Matched '$PT'"; else SUMMARY="Found matching files"; fi
+  [Gg]lob|glob)
+    SUMMARY="Found matching files"
     ;;
-  *reddit*)
+  *[Rr]eddit*)
     URL=$(echo "$TOOL_INPUT" | jq -r '.url // ""' 2>/dev/null)
     QUERY=$(echo "$TOOL_INPUT" | jq -r '.query // ""' 2>/dev/null)
     SR=$(echo "$TOOL_INPUT" | jq -r '.subreddit // ""' 2>/dev/null)
@@ -64,7 +74,7 @@ case "$TOOL_NAME" in
     else SUMMARY="Reddit query"
     fi
     ;;
-  *[Vv]ision*)
+  *[Vv]ision*|*vision*)
     SUMMARY="Analyzed image"
     ;;
 esac
