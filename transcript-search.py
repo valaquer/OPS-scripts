@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Search raw session transcript files (.jsonl) for keyword matches."""
+"""Search Facade conversations and session transcripts for keyword matches."""
 
 import argparse
 import json
 import glob
 import os
+import sqlite3
 import sys
 
 
 PROJECT_BASE = os.path.expanduser("~/.claude/projects")
 DIR_PREFIX = "-Users-d-patnaik-honeybloom-"
+FACADE_DB = "/Users/d.patnaik/honeybloom/library/facade/facade.db"
 
 
 def resolve_project_dir(teammate):
@@ -105,11 +107,90 @@ def search_file(filepath, query_lower, results, limit):
             results.append(f"{filepath}:{line_num}  [{timestamp}]  {snippet}")
 
 
+def resolve_facade_rooms(teammate, cursor):
+    """Return list of conversationIds the teammate belongs to."""
+    rooms = []
+    # Direct rooms — messages sent by or to this teammate
+    like_pattern = f"direct-{teammate}-%"
+    cursor.execute(
+        "SELECT DISTINCT conversationId FROM messages WHERE conversationId LIKE ?",
+        (like_pattern,)
+    )
+    for row in cursor.fetchall():
+        rooms.append(row[0])
+    # Huddle rooms — teammate is in the participants JSON array
+    cursor.execute(
+        "SELECT id, participants FROM rooms WHERE type = 'huddle'"
+    )
+    for row in cursor.fetchall():
+        try:
+            parts = json.loads(row[1])
+            if teammate in parts:
+                rooms.append(row[0])
+        except (json.JSONDecodeError, TypeError):
+            continue
+    return rooms
+
+
+def search_facade(query_lower, limit, teammate, room=None):
+    """Search Facade messages, returning results list."""
+    results = []
+    if not os.path.isfile(FACADE_DB):
+        print(f"Facade DB not found at {FACADE_DB}", file=sys.stderr)
+        return results
+
+    conn = None
+    try:
+        conn = sqlite3.connect(FACADE_DB)
+        conn.execute("PRAGMA query_only = ON")
+        cursor = conn.cursor()
+        if room:
+            conv_ids = [room]
+        else:
+            conv_ids = resolve_facade_rooms(teammate, cursor)
+
+        if not conv_ids:
+            return results
+
+        for cid in conv_ids:
+            if len(results) >= limit:
+                break
+            cursor.execute(
+                "SELECT rowid, sender, content, createdAt FROM messages WHERE conversationId = ? AND content IS NOT NULL AND sender != 'system' ORDER BY createdAt ASC",
+                (cid,)
+            )
+            for row in cursor.fetchall():
+                if len(results) >= limit:
+                    break
+                rowid, sender, content, created = row
+                if not content:
+                    continue
+                text_lower = content.lower()
+                match_pos = text_lower.find(query_lower)
+                if match_pos == -1:
+                    continue
+                ts = created
+                if len(ts) > 16:
+                    ts = ts[:16] + "Z"
+                snippet = make_snippet(content, match_pos, match_pos + len(query_lower))
+                results.append(f"facade:{rowid}  [{ts}]  {sender}: {snippet}")
+    except sqlite3.Error as e:
+        print(f"Facade DB error: {e}", file=sys.stderr)
+    finally:
+        if conn:
+            conn.close()
+
+    return results
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Search session transcripts for keywords.")
+    parser = argparse.ArgumentParser(description="Search Facade conversations and session transcripts for keywords.")
     parser.add_argument("query", help="Search keyword or phrase")
     parser.add_argument("--teammate", "-t", help="Teammate name (default: from cwd)")
+    parser.add_argument("--room", "-r", help="Room ID to search (e.g. direct-chica-20260527)")
     parser.add_argument("--limit", "-l", type=int, default=50, help="Max results (default 50)")
+    parser.add_argument("--source", choices=["facade", "jsonl", "all"], default="facade",
+                        help="Source to search (default: facade)")
     args = parser.parse_args()
 
     teammate = args.teammate
@@ -119,23 +200,20 @@ def main():
             print("Could not determine teammate from cwd. Use --teammate.", file=sys.stderr)
             sys.exit(1)
 
-    project_dir = resolve_project_dir(teammate)
-    if not os.path.isdir(project_dir):
-        print(f"No project directory found for '{teammate}': {project_dir}", file=sys.stderr)
-        sys.exit(1)
-
-    files = sorted(glob.glob(os.path.join(project_dir, "*.jsonl")))
-    if not files:
-        print(f"No transcript files found for '{teammate}'.")
-        sys.exit(0)
-
     query_lower = args.query.lower()
     results = []
 
-    for filepath in files:
-        search_file(filepath, query_lower, results, args.limit)
-        if len(results) >= args.limit:
-            break
+    if args.source in ("facade", "all"):
+        results = search_facade(query_lower, args.limit, teammate, args.room)
+
+    if args.source in ("jsonl", "all") and len(results) < args.limit:
+        project_dir = resolve_project_dir(teammate)
+        if os.path.isdir(project_dir):
+            files = sorted(glob.glob(os.path.join(project_dir, "*.jsonl")))
+            for filepath in files:
+                search_file(filepath, query_lower, results, args.limit)
+                if len(results) >= args.limit:
+                    break
 
     if not results:
         print("No matches found.")
