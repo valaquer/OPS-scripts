@@ -115,7 +115,7 @@ case "$TOOL_NAME" in
     SUMMARY="Analyzed image"
     ;;
   [Ss]kill)
-    SK=$(echo "$TOOL_INPUT" | jq -r '.name // ""' 2>/dev/null)
+    SK=$(echo "$TOOL_INPUT" | jq -r '.skill // .name // ""' 2>/dev/null)
     if [[ -n "$SK" ]]; then
       SUMMARY="Loaded skill: $SK"
     else
