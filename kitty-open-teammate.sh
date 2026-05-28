@@ -275,6 +275,10 @@ elif [ "$MODE" = "TRIO" ]; then
             fi
             PREV="$NAME"
         done
+        # Auto-start OPS huddle after all trio tabs are opened
+        curl -s -o /dev/null "http://localhost:51730/api/huddle" \
+            -X POST -H "Content-Type: application/json" \
+            -d '{"action":"start","host":"rio","participants":["rio","chica","natalie"]}' &
     fi
 else
     # Paired teammates
