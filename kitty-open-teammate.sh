@@ -79,6 +79,10 @@ get_harness() {
     awk -F',' -v name="$1" 'tolower($1) == name { print $4 }' "$JANUS_CSV"
 }
 
+get_model_api_id() {
+    awk -F',' -v name="$1" 'tolower($1) == name { print $8 }' "$JANUS_CSV"
+}
+
 # --- Launch Tab ---
 
 launch_tab() {
@@ -106,8 +110,14 @@ launch_tab() {
     local wakeup_prompt
     wakeup_prompt="$(build_wakeup_message "$name" "$title" "$harness")"
     if [[ "$harness" == *"OpenCode"* ]]; then
+        local model_id
+        model_id="$(get_model_api_id "$name")"
+        local model_flag=""
+        if [ -n "$model_id" ]; then
+            model_flag="-m opencode-go/$model_id"
+        fi
         args+=("/bin/zsh" "-l" "-c"
-               "$OPENCODE --prompt \"$wakeup_prompt\"")
+               "$OPENCODE $model_flag --prompt \"$wakeup_prompt\"")
     else
         args+=("/bin/zsh" "-l" "-c"
                "$CLAUDE --dangerously-skip-permissions \"$wakeup_prompt\"")
