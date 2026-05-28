@@ -157,7 +157,7 @@ apply_tab_color() {
 get_pair() {
     local input="$1"
     case "$input" in
-        chica|rio)      echo "chica Chica rio Rio" ;;
+        chica|rio|natalie) echo "TRIO chica Chica rio Rio natalie Natalie" ;;
         sierra|dante)   echo "sierra Sierra dante Dante" ;;
         eva|kirby)      echo "eva Eva kirby Kirby" ;;
         daksh|guru)     echo "daksh Daksh guru Guru" ;;
@@ -171,7 +171,6 @@ get_pair() {
         ines)           echo "SINGLE ines Ines" ;;
         katja)          echo "SINGLE katja Katja" ;;
         klara)          echo "SINGLE klara Klara" ;;
-        natalie)        echo "SINGLE natalie Natalie" ;;
         nico)           echo "SINGLE nico Nico" ;;
         richie)         echo "SINGLE richie Richie" ;;
         samara)         echo "SINGLE samara Samara" ;;
@@ -229,7 +228,9 @@ FRONT_APP="$(osascript -e 'tell application "System Events" to get name of first
 
 EXISTING="$(get_existing_teammates "$SOCKET")"
 
-if [ "$(echo "$PAIR_INFO" | awk '{print $1}')" = "SINGLE" ]; then
+MODE="$(echo "$PAIR_INFO" | awk '{print $1}')"
+
+if [ "$MODE" = "SINGLE" ]; then
     # Single teammate
     NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
     TITLE="$(echo "$PAIR_INFO" | awk '{print $3}')"
@@ -238,6 +239,42 @@ if [ "$(echo "$PAIR_INFO" | awk '{print $1}')" = "SINGLE" ]; then
         launch_tab "$SOCKET" "$NAME" "$TITLE" "no" ""
         apply_tab_color "$SOCKET" "$NAME"
         notify_facade "$NAME"
+    fi
+elif [ "$MODE" = "TRIO" ]; then
+    # Three teammates — open all missing, skip existing
+    T1_NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
+    T1_TITLE="$(echo "$PAIR_INFO" | awk '{print $3}')"
+    T2_NAME="$(echo "$PAIR_INFO" | awk '{print $4}')"
+    T2_TITLE="$(echo "$PAIR_INFO" | awk '{print $5}')"
+    T3_NAME="$(echo "$PAIR_INFO" | awk '{print $6}')"
+    T3_TITLE="$(echo "$PAIR_INFO" | awk '{print $7}')"
+
+    if $SOLO; then
+        # Solo mode — open only the named teammate
+        for PAIR in "$T1_NAME:$T1_TITLE" "$T2_NAME:$T2_TITLE" "$T3_NAME:$T3_TITLE"; do
+            TN="${PAIR%%:*}"; TT="${PAIR##*:}"
+            if [ "$INPUT" = "$TN" ]; then
+                if ! echo "$EXISTING" | grep -qx "$TN"; then
+                    launch_tab "$SOCKET" "$TN" "$TT" "no" ""
+                    apply_tab_color "$SOCKET" "$TN"
+                    notify_facade "$TN"
+                fi
+                break
+            fi
+        done
+    else
+        PREV=""
+        for PAIR in "$T1_NAME:$T1_TITLE" "$T2_NAME:$T2_TITLE" "$T3_NAME:$T3_TITLE"; do
+            NAME="${PAIR%%:*}"; TITLE="${PAIR##*:}"
+            if ! echo "$EXISTING" | grep -qx "$NAME"; then
+                NEEDS_GROUP="no"
+                [ -z "$PREV" ] && NEEDS_GROUP="yes"
+                launch_tab "$SOCKET" "$NAME" "$TITLE" "$NEEDS_GROUP" "$PREV"
+                apply_tab_color "$SOCKET" "$NAME"
+                notify_facade "$NAME"
+            fi
+            PREV="$NAME"
+        done
     fi
 else
     # Paired teammates
