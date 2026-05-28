@@ -127,18 +127,28 @@ esac
 # Determine room — use active huddle room if teammate is in one, otherwise direct room
 ROOM="direct-${TEAMMATE}"
 
-# POST to Facade — fire and forget
+# POST to Facade — env vars + temp file to avoid shell arg limits on large output
+export RELAY_SENDER="$TEAMMATE"
+export RELAY_ROOM="$ROOM"
+export RELAY_TOOL_NAME="$TOOL_NAME"
+export RELAY_TOOL_INPUT="$TOOL_INPUT"
+export RELAY_TOOL_OUTPUT="$TOOL_OUTPUT"
+export RELAY_SUMMARY="$SUMMARY"
+
+TMPFILE=$(mktemp)
+jq -n '{
+    sender: env.RELAY_SENDER,
+    room: env.RELAY_ROOM,
+    toolName: env.RELAY_TOOL_NAME,
+    toolInput: (env.RELAY_TOOL_INPUT | try fromjson catch .),
+    toolOutput: env.RELAY_TOOL_OUTPUT,
+    status: "success",
+    summary: env.RELAY_SUMMARY
+}' > "$TMPFILE" 2>/dev/null
+
 curl -s -o /dev/null -X POST http://localhost:51730/api/tool-activity \
     -H "Content-Type: application/json" \
-    -d "$(jq -n \
-        --arg sender "$TEAMMATE" \
-        --arg room "$ROOM" \
-        --arg toolName "$TOOL_NAME" \
-        --argjson toolInput "$TOOL_INPUT" \
-        --arg toolOutput "$TOOL_OUTPUT" \
-        --arg status "success" \
-        --arg summary "$SUMMARY" \
-        '{sender: $sender, room: $room, toolName: $toolName, toolInput: $toolInput, toolOutput: $toolOutput, status: $status, summary: $summary}'
-    )" &
+    --data @"$TMPFILE"
 
+rm -f "$TMPFILE"
 exit 0
