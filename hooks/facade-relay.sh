@@ -28,7 +28,8 @@ else
     [[ -z "$CWD" ]] && CWD="$PWD"
     TEAMMATE=$(basename "$CWD")
     TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-    [[ "$TOOL_NAME" == *"honeybloom-facade"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
+    # Skip all MCP infrastructure tools + ToolSearch (mcp__ prefix covers both honeybloom-facade and honeybloom-huddle)
+    [[ "$TOOL_NAME" == mcp__* || "$TOOL_NAME" == *"honeybloom-facade"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
     TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}' 2>/dev/null)
     TOOL_OUTPUT=$(echo "$INPUT" | jq -r '
       .tool_response // empty |
@@ -52,13 +53,18 @@ fi
 SUMMARY=""
 case "$TOOL_NAME" in
   [Rr]ead)
-    FP=$(echo "$TOOL_OUTPUT" | sed -n 's/.*<path>\([^<]*\)<\/path>.*/\1/p' | head -1)
+    # Try tool_input first (Claude Code), fall back to tool_output parsing
+    FP=$(echo "$TOOL_INPUT" | jq -r '.file_path // ""' 2>/dev/null)
+    if [[ -z "$FP" ]]; then
+      FP=$(echo "$TOOL_OUTPUT" | sed -n 's/.*<path>\([^<]*\)<\/path>.*/\1/p' | head -1)
+    fi
     if [[ -n "$FP" ]]; then
-      FP="${FP##*/}"
+      # Show last 2 path segments for context (e.g. "server/harness-reader.ts")
+      FN=$(echo "$FP" | awk -F/ '{if(NF>1) print $(NF-1)"/"$NF; else print $NF}')
       if echo "$TOOL_OUTPUT" | grep -qE '\(Showing lines [0-9]+[-–][0-9]+ of [0-9]+'; then
-        SUMMARY="Read $FP (partial)"
+        SUMMARY="Read $FN (partial)"
       else
-        SUMMARY="Read $FP (full)"
+        SUMMARY="Read $FN"
       fi
     else
       SUMMARY="Read files"
@@ -66,52 +72,34 @@ case "$TOOL_NAME" in
     ;;
   [Gg]rep)
     PT=$(echo "$TOOL_INPUT" | jq -r '.pattern // ""' 2>/dev/null)
-    FP=$(echo "$TOOL_OUTPUT" | sed -n '2s/:$//p' | head -1)
-    if [[ -n "$PT" && -n "$FP" ]]; then
-      FP="${FP##*/}"
-      SUMMARY="Searched $FP for '$PT'"
+    GP=$(echo "$TOOL_INPUT" | jq -r '.path // ""' 2>/dev/null)
+    if [[ -n "$GP" ]]; then
+      GP=$(echo "$GP" | awk -F/ '{if(NF>1) print $(NF-1)"/"$NF; else print $NF}')
+    fi
+    if [[ -n "$PT" && -n "$GP" ]]; then
+      SUMMARY="Grep '$PT' in $GP"
     elif [[ -n "$PT" ]]; then
-      SUMMARY="Searched for '$PT'"
-    elif [[ -n "$FP" ]]; then
-      FP="${FP##*/}"
-      SUMMARY="Searched $FP"
+      SUMMARY="Grep '$PT'"
     else
-      SUMMARY="Searched file contents"
+      SUMMARY="Grep search"
     fi
     ;;
   [Gg]lob)
+    PAT=$(echo "$TOOL_INPUT" | jq -r '.pattern // ""' 2>/dev/null)
     MATCH_COUNT=$(echo "$TOOL_OUTPUT" | grep -c '^/' 2>/dev/null || echo 0)
-    if [[ "$MATCH_COUNT" -gt 0 ]]; then
+    if [[ -n "$PAT" && "$MATCH_COUNT" -gt 0 ]]; then
+      SUMMARY="Glob $PAT ($MATCH_COUNT matches)"
+    elif [[ -n "$PAT" ]]; then
+      SUMMARY="Glob $PAT"
+    elif [[ "$MATCH_COUNT" -gt 0 ]]; then
       SUMMARY="Found $MATCH_COUNT matching files"
     else
       SUMMARY="Found matching files"
     fi
     ;;
-  [Bb]ash)
-    CMD=$(echo "$TOOL_INPUT" | jq -r '.command // ""' 2>/dev/null)
-    if [[ -n "$CMD" ]]; then
-      SUMMARY="Ran: ${CMD:0:80}"
-    else
-      SUMMARY="Ran bash command"
-    fi
-    ;;
-  [Ww]rite)
-    FP=$(echo "$TOOL_INPUT" | jq -r '.filePath // ""' 2>/dev/null)
-    if [[ -n "$FP" ]]; then
-      FP="${FP##*/}"
-      SUMMARY="Wrote $FP"
-    else
-      SUMMARY="Wrote file"
-    fi
-    ;;
-  [Ee]dit)
-    FP=$(echo "$TOOL_INPUT" | jq -r '.filePath // ""' 2>/dev/null)
-    if [[ -n "$FP" ]]; then
-      FP="${FP##*/}"
-      SUMMARY="Edited $FP"
-    else
-      SUMMARY="Edited file"
-    fi
+  [Bb]ash|[Ww]rite|[Ee]dit|[Nn]otebook[Ee]dit)
+    # Write tools: no summary — full input + output sent for QA
+    SUMMARY=""
     ;;
   *[Rr]eddit*)
     URL=$(echo "$TOOL_INPUT" | jq -r '.url // ""' 2>/dev/null)
