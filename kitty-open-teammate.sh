@@ -15,11 +15,17 @@ JANUS_CSV="/Users/d.patnaik/honeybloom/rio/janus-config.csv"
 # Boss's wakeup prompt formatted as Facade structured metadata.
 # Teammates see this as a Facade message and naturally reply via post_to_facade.
 build_wakeup_message() {
-    local name="$1" title="$2"
+    local name="$1" title="$2" harness="${3:-Claude Code}"
     local ts
     ts="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+    local item1
+    if [[ "$harness" == *"OpenCode"* ]]; then
+        item1="[1] Your CLAUDE is loaded. PLAYBOOK and LOGBOOK are referenced via @ in your CLAUDE.md but are NOT auto-loaded on OpenCode. Read them manually. You have a generous 1M context window so internalize the files."
+    else
+        item1="[1] Your CLAUDE, PLAYBOOK AND LOGBOOK are already loaded into context. No need to call Read on them again. You have a generous 1M context window so internalize the files."
+    fi
     local body="${title}, hi. A few important announcements.
-[1] Your CLAUDE, PLAYBOOK AND LOGBOOK are already loaded into context. No need to call Read on them again. You have a generous 1M context window so internalize the files.
+${item1}
 [2] Your knowledge cutoff is nearly a year old. Keep this in mind
 [3] This is the start of a new session. Use judgement to determine the time that has elapsed between the end of the last session and the start of this session.
 [4] In every turn, you will receive the current timestamp and a directive to be succinct and productive.
@@ -98,7 +104,7 @@ launch_tab() {
     fi
 
     local wakeup_prompt
-    wakeup_prompt="$(build_wakeup_message "$name" "$title")"
+    wakeup_prompt="$(build_wakeup_message "$name" "$title" "$harness")"
     if [[ "$harness" == *"OpenCode"* ]]; then
         args+=("/bin/zsh" "-l" "-c"
                "$OPENCODE --prompt \"$wakeup_prompt\"")
