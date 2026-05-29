@@ -20,7 +20,16 @@ build_wakeup_message() {
     ts="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
     local item1
     if [[ "$harness" == *"OpenCode"* ]]; then
-        item1="[1] Your CLAUDE is loaded. PLAYBOOK and LOGBOOK are referenced via @ in your CLAUDE.md but are NOT auto-loaded on OpenCode. Read them manually. You have a generous 1M context window so internalize the files."
+        item1="[1] Your CLAUDE is loaded. The following files are @-referenced in your CLAUDE.md but NOT auto-loaded on OpenCode. Read them all manually at wakeup:
+- /Users/d.patnaik/honeybloom/rio/PLAYBOOK.md
+- /Users/d.patnaik/honeybloom/rio/LOGBOOK.md
+- /Users/d.patnaik/honeybloom/library/skills/gestalt-layer-1-universal-runbook/SKILL.md
+- /Users/d.patnaik/honeybloom/library/skills/gestalt-layer-2-failure-pattern-library/SKILL.md
+- /Users/d.patnaik/honeybloom/library/skills/gestalt-layer-3-facade/SKILL.md
+- /Users/d.patnaik/honeybloom/library/skills/gestalt-layer-3-markwhen/SKILL.md
+- /Users/d.patnaik/honeybloom/library/skills/gestalt-layer-3-workbench/SKILL.md
+- /Users/d.patnaik/honeybloom/library/skills/gestalt-layer-3-janus/SKILL.md
+You have a generous 1M context window so internalize the files."
     else
         item1="[1] Your CLAUDE, PLAYBOOK AND LOGBOOK are already loaded into context. No need to call Read on them again. You have a generous 1M context window so internalize the files."
     fi
