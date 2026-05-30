@@ -26,7 +26,8 @@ else
     INPUT=$(cat)
     CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
     [[ -z "$CWD" ]] && CWD="$PWD"
-    TEAMMATE=$(basename "$CWD")
+    TEAMMATE=$(echo "$CWD" | sed -n 's|.*/honeybloom/\([^/]*\).*|\1|p')
+    [[ -z "$TEAMMATE" ]] && TEAMMATE=$(basename "$CWD")
     TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
     # Skip all MCP infrastructure tools + ToolSearch (mcp__ prefix covers both honeybloom-facade and honeybloom-huddle)
     [[ "$TOOL_NAME" == mcp__* || "$TOOL_NAME" == *"honeybloom-facade"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
@@ -40,12 +41,12 @@ else
     ' 2>/dev/null)
 fi
 
-# FP-12 Credential Relay filter — suppress relay for sensitive file paths and raw keys
-# Keychain subshell expansion is the primary defense. This filter catches file reads and raw key patterns.
-COMBINED="${TOOL_INPUT}"
-if echo "$COMBINED" | grep -qiE 'auth\.json|credentials\.json|\.env[^a-z]|tokens/|\.keys|\.pem|\.p12|[a-f0-9]{32,}|(sk|pk|key|tok|ghp|gho)[-_][A-Za-z0-9]{20,}'; then
-    exit 0
-fi
+
+# FP-12 Credential Relay filter — line-level redaction for sensitive file paths and raw keys
+# Keychain subshell expansion is the primary defense. This filter redacts matching lines, not entire cards.
+CRED_REGEX='auth\.json|credentials\.json|\.env[^a-z]|tokens/|\.keys|\.pem|\.p12|(sk|pk|key|tok|ghp|gho)[-_][A-Za-z0-9_-]{20,}'
+TOOL_INPUT=$(echo "$TOOL_INPUT" | sed -E "s#.*($CRED_REGEX).*#[credential redacted]#g")
+TOOL_OUTPUT=$(echo "$TOOL_OUTPUT" | sed -E "s#.*($CRED_REGEX).*#[credential redacted]#g")
 
 # Generate summary for read-only tool activity
 # OpenCode passes lowercase tool names and TOOL_INPUT is always {} (env var limitation).
