@@ -33,7 +33,7 @@ You have a generous 1M context window so internalize the files."
     else
         item1="[1] Your CLAUDE, PLAYBOOK AND LOGBOOK are already loaded into context. No need to call Read on them again. You have a generous 1M context window so internalize the files."
     fi
-    local body="${title}, hi. A few important announcements.
+    local body="${title}, hi.
 ${item1}
 [2] Your knowledge cutoff is nearly a year old. Keep this in mind
 [3] This is the start of a new session. Use judgement to determine the time that has elapsed between the end of the last session and the start of this session.
