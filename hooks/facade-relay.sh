@@ -44,7 +44,7 @@ fi
 
 # FP-12 Credential Relay filter — line-level redaction for sensitive file paths and raw keys
 # Keychain subshell expansion is the primary defense. This filter redacts matching lines, not entire cards.
-CRED_REGEX='auth\.json|credentials\.json|\.env[^a-z]|tokens/|\.keys|\.pem|\.p12|(sk|pk|key|tok|ghp|gho)[-_][A-Za-z0-9_-]{20,}'
+CRED_REGEX='auth\.json|credentials\.json|\.env[^a-z]|tokens/|\.keys|\.pem|\.p12|(sk|pk|key|tok|ghp|gho)[-_][A-Za-z0-9_-]{20,}|find-generic-password|add-generic-password|delete-generic-password'
 TOOL_INPUT=$(echo "$TOOL_INPUT" | sed -E "s#.*($CRED_REGEX).*#[credential redacted]#g")
 TOOL_OUTPUT=$(echo "$TOOL_OUTPUT" | sed -E "s#.*($CRED_REGEX).*#[credential redacted]#g")
 
