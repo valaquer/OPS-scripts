@@ -15,6 +15,6 @@ while [ $WAIT -lt 30 ]; do
     WAIT=$((WAIT + 1))
 done
 open -a Safari http://localhost:51740/ember
-open -a Safari http://localhost:51740/mockup
+open -a Safari http://localhost:51740/sandbox
 open -a Safari http://localhost:51740/bavaria
 open -a Safari http://localhost:51740/lisbon
