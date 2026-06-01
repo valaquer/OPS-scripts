@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Honeybloom Reddit — Read-only MCP server.
-JSON API with automatic fallback to old.reddit.com HTML/RSS scraping.
+JSON API with automatic fallback to old.reddit.com HTML scraping.
 """
 # /// script
 # requires-python = ">=3.10"
@@ -10,16 +10,15 @@ JSON API with automatic fallback to old.reddit.com HTML/RSS scraping.
 
 import json
 import html as html_mod
+import re
 import urllib.request
 import urllib.parse
 import urllib.error
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from mcp.server.fastmcp import FastMCP
 
 UA = "honeybloom:reddit-mcp:1.0.0 (by /u/valaquer)"
 TIMEOUT = 15
-ATOM_NS = "http://www.w3.org/2005/Atom"
 
 _json_blocked = False
 
@@ -35,8 +34,8 @@ def _fetch_json(url: str) -> dict:
         return json.loads(resp.read().decode())
 
 
-def _fetch_text(url: str) -> str:
-    """Fetch raw text (HTML or RSS) from old.reddit.com."""
+def _fetch_html(url: str) -> str:
+    """Fetch HTML from old.reddit.com."""
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
         return resp.read().decode()
@@ -69,7 +68,7 @@ def _ts(utc: float) -> str:
     return datetime.fromtimestamp(utc, tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
 
-# --- JSON extractors (existing) ---
+# --- JSON extractors (original path) ---
 
 def _extract_post(data: dict) -> dict:
     """Universal field extraction from a Reddit JSON post (t3)."""
@@ -123,140 +122,225 @@ def _flatten_comments(children: list, max_comments: int) -> tuple[list, int]:
     return result, more_count
 
 
-# --- RSS parser for post listings ---
+# --- HTML scraping: post listings from old.reddit.com ---
 
-def _parse_rss_posts(xml_text: str) -> list[dict]:
-    """Parse old.reddit.com Atom RSS feed into post dicts."""
-    root = ET.fromstring(xml_text)
+_THING_T3_RE = re.compile(
+    r'<div[^>]*class="([^"]*thing[^"]*)"[^>]*id="thing_t3[^"]*"([^>]*)>'
+)
+_DATA_ATTR_RE = re.compile(r'(data-[\w-]+)="([^"]*)"')
+_TITLE_A_RE = re.compile(r'<a[^>]*class="[^"]*title[^"]*"[^>]*>(.*?)</a>', re.DOTALL)
+_FLAIR_RE = re.compile(r'<span class="linkflairlabel[^"]*"[^>]*title="([^"]*)"')
+
+
+def _parse_listing_html(html_text: str, limit: int) -> list[dict]:
+    """Parse old.reddit.com listing page into post dicts."""
     posts = []
-    for entry in root.findall(f"{{{ATOM_NS}}}entry"):
-        title_el = entry.find(f"{{{ATOM_NS}}}title")
-        author_el = entry.find(f"{{{ATOM_NS}}}author")
-        author_name = ""
-        if author_el is not None:
-            name_el = author_el.find(f"{{{ATOM_NS}}}name")
-            if name_el is not None and name_el.text:
-                author_name = name_el.text.lstrip("/u/")
-        content_el = entry.find(f"{{{ATOM_NS}}}content")
-        link_el = entry.find(f"{{{ATOM_NS}}}link")
-        updated_el = entry.find(f"{{{ATOM_NS}}}updated")
+    for m in _THING_T3_RE.finditer(html_text):
+        if len(posts) >= limit:
+            break
+        attrs = dict(_DATA_ATTR_RE.findall(m.group(0)))
 
+        # Extract title from the next <a class="title"> after this div
+        title_search = _TITLE_A_RE.search(html_text[m.start():m.start() + 4000])
+        title = html_mod.unescape(re.sub(r'<[^>]+>', '', title_search.group(1))).strip() if title_search else ""
+
+        # Extract flair
+        flair_search = _FLAIR_RE.search(html_text[m.start():m.start() + 4000])
+        flair = html_mod.unescape(flair_search.group(1)) if flair_search else ""
+
+        # Extract selftext from expando
         selftext = ""
-        if content_el is not None and content_el.text:
-            selftext = html_mod.unescape(content_el.text)
-            selftext = selftext.replace("<table>", "").replace("</table>", "")
-            selftext = selftext.replace("<tr>", "").replace("</tr>", "")
-            selftext = selftext.replace("<td>", "").replace("</td>", "")
+        expando_search = re.search(
+            r'<div class="[^"]*expando[^"]*"[^>]*>.*?<div class="md"[^>]*>(.*?)</div>',
+            html_text[m.start():m.start() + 10000], re.DOTALL
+        )
+        if expando_search:
+            raw = re.sub(r'<[^>]+>', ' ', expando_search.group(1))
+            selftext = html_mod.unescape(raw).strip()
+            selftext = re.sub(r'\s+', ' ', selftext)
 
-        permalink = ""
-        if link_el is not None:
-            permalink = link_el.get("href", "")
+        timestamp = int(attrs.get("data-timestamp", "0")) // 1000
+        is_self = attrs.get("data-domain", "").startswith("self.")
 
         posts.append({
-            "title": title_el.text if title_el is not None and title_el.text else "",
-            "author": author_name or "[deleted]",
-            "selftext": selftext.strip(),
+            "title": title,
+            "author": attrs.get("data-author", "[deleted]"),
+            "selftext": selftext,
+            "url": attrs.get("data-url", ""),
+            "permalink": "https://www.reddit.com" + attrs.get("data-permalink", ""),
+            "score": int(attrs.get("data-score", "0")),
+            "num_comments": int(attrs.get("data-comments-count", "0")),
+            "created": _ts(timestamp) if timestamp else "unknown",
+            "subreddit": attrs.get("data-subreddit", ""),
+            "is_self": is_self,
+            "is_video": False,
+            "is_gallery": attrs.get("data-is-gallery", "false") == "true",
+            "over_18": attrs.get("data-nsfw", "false") == "true",
+            "flair": flair,
+            "source": "html",
+        })
+    return posts
+
+
+# --- HTML scraping: search results from old.reddit.com ---
+
+_SEARCH_RESULT_RE = re.compile(
+    r'<div[^>]*class="[^"]*search-result search-result-link[^"]*"[^>]*>'
+)
+_SEARCH_TITLE_RE = re.compile(
+    r'<a[^>]*href="([^"]*)"[^>]*class="[^"]*search-title[^"]*"[^>]*>(.*?)</a>', re.DOTALL
+)
+_SEARCH_AUTHOR_RE = re.compile(r'<a[^>]*class="author[^"]*"[^>]*>([^<]+)</a>')
+_SEARCH_SCORE_RE = re.compile(r'(\d+) points?')
+_SEARCH_COMMENTS_RE = re.compile(r'(\d+) comments?')
+_SEARCH_TIME_RE = re.compile(r'datetime="([^"]*)"')
+_SEARCH_SUB_RE = re.compile(r'<a[^>]*class="search-subreddit-link[^"]*"[^>]*>r/([^<]+)</a>')
+
+
+def _parse_search_html(html_text: str, limit: int) -> list[dict]:
+    """Parse old.reddit.com search results page into post dicts."""
+    posts = []
+    for m in _SEARCH_RESULT_RE.finditer(html_text):
+        if len(posts) >= limit:
+            break
+        chunk = html_text[m.start():m.start() + 3000]
+
+        title_match = _SEARCH_TITLE_RE.search(chunk)
+        title = html_mod.unescape(re.sub(r'<[^>]+>', '', title_match.group(2))).strip() if title_match else ""
+        permalink = title_match.group(1) if title_match else ""
+        if permalink and not permalink.startswith("http"):
+            permalink = "https://old.reddit.com" + permalink
+
+        author_match = _SEARCH_AUTHOR_RE.search(chunk)
+        score_match = _SEARCH_SCORE_RE.search(chunk)
+        comments_match = _SEARCH_COMMENTS_RE.search(chunk)
+        time_match = _SEARCH_TIME_RE.search(chunk)
+        sub_match = _SEARCH_SUB_RE.search(chunk)
+
+        posts.append({
+            "title": title,
+            "author": author_match.group(1) if author_match else "[deleted]",
+            "selftext": "",
             "url": permalink,
             "permalink": permalink,
-            "score": 0,
-            "num_comments": 0,
-            "created": updated_el.text if updated_el is not None and updated_el.text else "unknown",
-            "subreddit": "",
+            "score": int(score_match.group(1)) if score_match else 0,
+            "num_comments": int(comments_match.group(1)) if comments_match else 0,
+            "created": time_match.group(1) if time_match else "unknown",
+            "subreddit": sub_match.group(1) if sub_match else "",
             "is_self": False,
             "is_video": False,
             "is_gallery": False,
             "over_18": False,
             "flair": "",
-            "source": "rss",
+            "source": "html",
         })
     return posts
 
 
-# --- HTML parser for thread pages (post + comments) ---
+# --- HTML scraping: thread page (post + comments) from old.reddit.com ---
+
+_THING_T1_RE = re.compile(
+    r'<div[^>]*id="(thing_t1[^"]*)"[^>]*data-author="([^"]*)"[^>]*>'
+)
+_SCORE_SPAN_RE = re.compile(
+    r'<span class="score[^"]*"[^>]*title="(\d+)"'
+)
+_DATETIME_RE = re.compile(
+    r'datetime="([^"]*)"'
+)
+
 
 def _parse_thread_html(html_text: str, max_comments: int) -> dict:
-    """Parse old.reddit.com thread HTML into post + comments."""
-    import re
+    """Parse old.reddit.com thread page into post + comments."""
 
-    # Extract post data from thing_t3 data attributes
-    post_match = re.search(
-        r'<div[^>]*class="[^"]*thing[^"]*"[^>]*id="thing_t3[^"]*"[^>]*'
-        r'data-author="([^"]*)"[^>]*>',
+    # --- Post extraction ---
+    post_thing = re.search(
+        r'<div[^>]*id="thing_t3[^"]*"([^>]*)>',
         html_text
     )
-    post_author = post_match.group(1) if post_match else "[deleted]"
+    post_attrs = dict(_DATA_ATTR_RE.findall(post_thing.group(0))) if post_thing else {}
 
-    # Extract title
     title_match = re.search(
         r'<a[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</a>',
         html_text
     )
-    post_title = html_mod.unescape(title_match.group(1)) if title_match else ""
+    post_title = html_mod.unescape(re.sub(r'<[^>]+>', '', title_match.group(1))).strip() if title_match else ""
 
-    # Extract post selftext from the first usertext-body md div after the post thing
+    # Post selftext
     post_selftext = ""
-    selftext_match = re.search(
-        r'thing_t3.*?<div class="(?:md|usertext-body)[^"]*"[^>]*>(.*?)</div>',
-        html_text, re.DOTALL
-    )
-    if selftext_match:
-        raw = selftext_match.group(1)
-        raw = re.sub(r'<[^>]+>', ' ', raw)
-        post_selftext = html_mod.unescape(raw).strip()
-        post_selftext = re.sub(r'\s+', ' ', post_selftext)
+    if post_thing:
+        selftext_search = re.search(
+            r'<div class="[^"]*expando[^"]*"[^>]*>.*?<div class="md"[^>]*>(.*?)</div>',
+            html_text[post_thing.start():post_thing.start() + 20000], re.DOTALL
+        )
+        if selftext_search:
+            raw = re.sub(r'<[^>]+>', ' ', selftext_search.group(1))
+            post_selftext = html_mod.unescape(raw).strip()
+            post_selftext = re.sub(r'\s+', ' ', post_selftext)
+
+    post_timestamp = int(post_attrs.get("data-timestamp", "0")) // 1000
 
     post = {
         "title": post_title,
-        "author": post_author,
+        "author": post_attrs.get("data-author", "[deleted]"),
         "selftext": post_selftext,
-        "permalink": "",
-        "score": 0,
-        "num_comments": 0,
+        "url": post_attrs.get("data-url", ""),
+        "permalink": "https://www.reddit.com" + post_attrs.get("data-permalink", ""),
+        "score": int(post_attrs.get("data-score", "0")),
+        "num_comments": int(post_attrs.get("data-comments-count", "0")),
+        "created": _ts(post_timestamp) if post_timestamp else "unknown",
+        "subreddit": post_attrs.get("data-subreddit", ""),
         "source": "html",
     }
 
-    # Extract comments using regex on thing_t1 divs
+    # --- Comment extraction ---
     comments = []
-    # Find all comment things with their nesting context
-    comment_pattern = re.compile(
-        r'<div[^>]*class="([^"]*thing[^"]*)"[^>]*id="(thing_t1[^"]*)"[^>]*'
-        r'data-author="([^"]*)"[^>]*>',
-    )
+    comment_area_match = re.search(r'<div class=["\']commentarea["\']', html_text)
+    if not comment_area_match:
+        return {"post": post, "comments": comments}
 
-    # Track depth by finding the sitetable nesting
-    # Each level of comments is inside a div class="sitetable listing" > div class="child"
-    child_opens = [m.start() for m in re.finditer(r'<div class="child"', html_text)]
-    child_positions = sorted(child_opens)
+    comment_html = html_text[comment_area_match.start():]
+    child_opens = [m.start() for m in re.finditer(r'<div class="child"', comment_html)]
 
-    for m in comment_pattern.finditer(html_text):
+    for m in _THING_T1_RE.finditer(comment_html):
         if len(comments) >= max_comments:
             break
         pos = m.start()
-        author = m.group(3)
+        author = m.group(2)
 
-        # Depth = number of "child" divs that opened before this comment's position
-        # minus the ones that opened before the comment area
-        depth = sum(1 for cp in child_positions if cp < pos)
-        # Subtract the base level (comments area itself has a child div)
+        depth = sum(1 for cp in child_opens if cp < pos)
         depth = max(0, depth - 1)
 
-        # Extract comment body: find the next md div after this comment
-        body_search = re.search(
-            r'<div class="md"[^>]*>(.*?)</div>',
-            html_text[pos:pos + 5000], re.DOTALL
-        )
+        comment_slice = comment_html[pos:pos + 5000]
+
+        # Score
+        score = 0
+        score_match = _SCORE_SPAN_RE.search(comment_slice)
+        if score_match:
+            score = int(score_match.group(1))
+
+        # Timestamp
+        created = "unknown"
+        time_match = _DATETIME_RE.search(comment_slice)
+        if time_match:
+            created = time_match.group(1)
+
+        # Body
         body = ""
-        if body_search:
-            raw = body_search.group(1)
-            raw = re.sub(r'<[^>]+>', ' ', raw)
+        body_match = re.search(
+            r'<div class="md"[^>]*>(.*?)</div>',
+            comment_slice, re.DOTALL
+        )
+        if body_match:
+            raw = re.sub(r'<[^>]+>', ' ', body_match.group(1))
             body = html_mod.unescape(raw).strip()
             body = re.sub(r'\s+', ' ', body)
 
         comments.append({
             "author": author or "[deleted]",
             "body": body,
-            "score": 0,
-            "created": "unknown",
+            "score": score,
+            "created": created,
             "depth": depth,
         })
 
@@ -275,7 +359,6 @@ def get_thread(url: str, max_comments: int = 50) -> str:
     """
     global _json_blocked
 
-    # Try JSON first (unless already known blocked)
     if not _json_blocked:
         json_url = url.rstrip("/")
         if not json_url.endswith(".json"):
@@ -299,27 +382,20 @@ def get_thread(url: str, max_comments: int = 50) -> str:
             else:
                 return _handle_error(e)
 
-    # Fallback: old.reddit.com HTML scraping
     html_url = url.rstrip("/")
-    # Rewrite to old.reddit.com
     html_url = html_url.replace("://www.reddit.com", "://old.reddit.com")
     html_url = html_url.replace("://reddit.com", "://old.reddit.com")
     if "://old.reddit.com" not in html_url:
         html_url = "https://old.reddit.com" + urllib.parse.urlparse(html_url).path
-    # Remove .json suffix if present
     if html_url.endswith(".json"):
         html_url = html_url[:-5]
 
     try:
-        html_text = _fetch_text(html_url)
+        html_text = _fetch_html(html_url)
     except Exception as e:
         return _handle_error(e)
 
     result = _parse_thread_html(html_text, max_comments)
-    if result["comments"]:
-        result["note"] = f"Scraped from old.reddit.com — scores and timestamps unavailable."
-    else:
-        result["note"] = "Scraped from old.reddit.com — no comments found on this page."
     return json.dumps(result, indent=2)
 
 
@@ -338,7 +414,6 @@ def search_posts(subreddit: str, query: str, sort: str = "relevance", limit: int
     sub = subreddit.removeprefix("r/").strip("/")
     q = urllib.parse.quote(query)
 
-    # Try JSON first
     if not _json_blocked:
         json_url = f"https://www.reddit.com/r/{sub}/search.json?q={q}&restrict_sr=on&sort={sort}&limit={limit}"
         try:
@@ -352,15 +427,14 @@ def search_posts(subreddit: str, query: str, sort: str = "relevance", limit: int
             else:
                 return _handle_error(e)
 
-    # Fallback: old.reddit.com RSS
-    rss_url = f"https://old.reddit.com/r/{sub}/search.rss?q={q}&restrict_sr=on&sort={sort}&limit={limit}"
+    html_url = f"https://old.reddit.com/r/{sub}/search?q={q}&restrict_sr=on&sort={sort}&limit={limit}"
     try:
-        xml_text = _fetch_text(rss_url)
+        html_text = _fetch_html(html_url)
     except Exception as e:
         return _handle_error(e)
 
-    posts = _parse_rss_posts(xml_text)
-    return json.dumps(posts[:limit], indent=2)
+    posts = _parse_search_html(html_text, limit)
+    return json.dumps(posts, indent=2)
 
 
 @mcp.tool()
@@ -376,7 +450,6 @@ def get_posts(subreddit: str, sort: str = "hot", limit: int = 25) -> str:
     limit = min(limit, 100)
     sub = subreddit.removeprefix("r/").strip("/")
 
-    # Try JSON first
     if not _json_blocked:
         json_url = f"https://www.reddit.com/r/{sub}/{sort}.json?limit={limit}"
         try:
@@ -390,15 +463,14 @@ def get_posts(subreddit: str, sort: str = "hot", limit: int = 25) -> str:
             else:
                 return _handle_error(e)
 
-    # Fallback: old.reddit.com RSS
-    rss_url = f"https://old.reddit.com/r/{sub}/{sort}/.rss"
+    html_url = f"https://old.reddit.com/r/{sub}/{sort}/"
     try:
-        xml_text = _fetch_text(rss_url)
+        html_text = _fetch_html(html_url)
     except Exception as e:
         return _handle_error(e)
 
-    posts = _parse_rss_posts(xml_text)
-    return json.dumps(posts[:limit], indent=2)
+    posts = _parse_listing_html(html_text, limit)
+    return json.dumps(posts, indent=2)
 
 
 if __name__ == "__main__":
