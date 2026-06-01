@@ -29,8 +29,8 @@ else
     TEAMMATE=$(echo "$CWD" | sed -n 's|.*/honeybloom/\([^/]*\).*|\1|p')
     [[ -z "$TEAMMATE" ]] && TEAMMATE=$(basename "$CWD")
     TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-    # Skip all MCP infrastructure tools + ToolSearch (mcp__ prefix covers both honeybloom-facade and honeybloom-huddle)
-    [[ "$TOOL_NAME" == mcp__* || "$TOOL_NAME" == *"honeybloom-facade"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
+    # Skip Honeybloom MCP tools + ToolSearch (allow external MCP like Playwright, Reddit)
+    [[ "$TOOL_NAME" == *"honeybloom-facade"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
     TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}' 2>/dev/null)
     TOOL_OUTPUT=$(echo "$INPUT" | jq -r '
       .tool_response // empty |
