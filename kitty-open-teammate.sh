@@ -126,10 +126,10 @@ launch_tab() {
             model_flag="-m opencode-go/$model_id"
         fi
         args+=("/bin/zsh" "-l" "-c"
-               "$OPENCODE $model_flag --prompt \"$wakeup_prompt\"")
+               "trap 'curl -s -o /dev/null --max-time 3 http://localhost:51730/api/tab-closed?teammate=$name' EXIT; $OPENCODE $model_flag --prompt \"$wakeup_prompt\"")
     else
         args+=("/bin/zsh" "-l" "-c"
-               "$CLAUDE --dangerously-skip-permissions \"$wakeup_prompt\"")
+               "trap 'curl -s -o /dev/null --max-time 3 http://localhost:51730/api/tab-closed?teammate=$name' EXIT; $CLAUDE --dangerously-skip-permissions \"$wakeup_prompt\"")
     fi
 
     "${args[@]}"
@@ -182,15 +182,14 @@ apply_tab_color() {
 get_pair() {
     local input="$1"
     case "$input" in
-        chica|rio|natalie) echo "TRIO chica Chica rio Rio natalie Natalie" ;;
+        chica|rio|natalie) echo "TRIO rio chica Chica rio Rio natalie Natalie" ;;
         sierra|dante)   echo "sierra Sierra dante Dante" ;;
         eva|kirby)      echo "eva Eva kirby Kirby" ;;
         daksh|guru)     echo "daksh Daksh guru Guru" ;;
-        pike|juno)      echo "pike Pike juno Juno" ;;
+        juno|pike|claire) echo "TRIO juno juno Juno pike Pike claire Claire" ;;
         wyatt|hana)     echo "wyatt Wyatt hana Hana" ;;
         ananya)         echo "SINGLE ananya Ananya" ;;
         andrea)         echo "SINGLE andrea Andrea" ;;
-        claire)         echo "SINGLE claire Claire" ;;
         felix)          echo "SINGLE felix Felix" ;;
         gunnar)         echo "SINGLE gunnar Gunnar" ;;
         ines)           echo "SINGLE ines Ines" ;;
@@ -267,12 +266,13 @@ if [ "$MODE" = "SINGLE" ]; then
     fi
 elif [ "$MODE" = "TRIO" ]; then
     # Three teammates — open all missing, skip existing
-    T1_NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
-    T1_TITLE="$(echo "$PAIR_INFO" | awk '{print $3}')"
-    T2_NAME="$(echo "$PAIR_INFO" | awk '{print $4}')"
-    T2_TITLE="$(echo "$PAIR_INFO" | awk '{print $5}')"
-    T3_NAME="$(echo "$PAIR_INFO" | awk '{print $6}')"
-    T3_TITLE="$(echo "$PAIR_INFO" | awk '{print $7}')"
+    HOST="$(echo "$PAIR_INFO" | awk '{print $2}')"
+    T1_NAME="$(echo "$PAIR_INFO" | awk '{print $3}')"
+    T1_TITLE="$(echo "$PAIR_INFO" | awk '{print $4}')"
+    T2_NAME="$(echo "$PAIR_INFO" | awk '{print $5}')"
+    T2_TITLE="$(echo "$PAIR_INFO" | awk '{print $6}')"
+    T3_NAME="$(echo "$PAIR_INFO" | awk '{print $7}')"
+    T3_TITLE="$(echo "$PAIR_INFO" | awk '{print $8}')"
 
     if $SOLO; then
         # Solo mode — open only the named teammate
@@ -300,10 +300,10 @@ elif [ "$MODE" = "TRIO" ]; then
             fi
             PREV="$NAME"
         done
-        # Auto-start OPS huddle after all trio tabs are opened
+        # Auto-start huddle after all trio tabs are opened
         curl -s -o /dev/null "http://localhost:51730/api/huddle" \
             -X POST -H "Content-Type: application/json" \
-            -d '{"action":"start","host":"rio","participants":["rio","chica","natalie"]}' &
+            -d "{\"action\":\"start\",\"host\":\"$HOST\",\"participants\":[\"$T1_NAME\",\"$T2_NAME\",\"$T3_NAME\"]}" &
     fi
 else
     # Paired teammates
