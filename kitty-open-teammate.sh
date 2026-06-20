@@ -7,49 +7,13 @@
 # @raycast.argument1 { "type": "text", "placeholder": "Teammate name" }
 
 KITTEN="/opt/homebrew/bin/kitten"
-CLAUDE="/Users/deepak-macmini/.local/bin/claude"
-OPENCODE="/Users/deepak-macmini/.opencode/bin/opencode"
-HOMEDIR="/Users/deepak-macmini/honeybloom"
-JANUS_CSV="/Users/deepak-macmini/honeybloom/rio/janus-config.csv"
 
 # Mac Mini SSH constants
-SSH_KEY="/Users/deepak-macmini/.ssh/id_hanover"
+SSH_KEY="/Users/d.patnaik/.ssh/id_hanover"
 MINI_USER="deepak-macmini"
 MINI_HOST="192.168.0.186"
-MINI_LAUNCH="$HOMEDIR/library/scripts/mini-launch.sh"
-
-# Boss's wakeup prompt formatted as Aether structured metadata.
-# Teammates see this as an Aether message and naturally reply via post_to_aether.
-build_wakeup_message() {
-    local name="$1" title="$2" harness="${3:-Claude Code}"
-    local ts
-    ts="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-    local item1
-    if [[ "$harness" == *"OpenCode"* ]]; then
-        item1="[1] Your CLAUDE is loaded. The following files are @-referenced in your CLAUDE.md but NOT auto-loaded on OpenCode. Read them all manually at wakeup:
-- /Users/deepak-macmini/honeybloom/rio/PLAYBOOK.md
-- /Users/deepak-macmini/honeybloom/rio/LOGBOOK.md
-- /Users/deepak-macmini/honeybloom/library/skills/gestalt-layer-1-universal-runbook/SKILL.md
-- /Users/deepak-macmini/honeybloom/library/skills/gestalt-layer-2-failure-pattern-library/SKILL.md
-- /Users/deepak-macmini/honeybloom/library/skills/gestalt-layer-3-aether/SKILL.md
-- /Users/deepak-macmini/honeybloom/library/skills/gestalt-layer-3-markwhen/SKILL.md
-- /Users/deepak-macmini/honeybloom/library/skills/gestalt-layer-3-workbench/SKILL.md
-- /Users/deepak-macmini/honeybloom/library/skills/gestalt-layer-3-janus/SKILL.md
-You have a generous 1M context window so internalize the files."
-    else
-        item1="[1] Your CLAUDE, PLAYBOOK AND LOGBOOK are already loaded into context. No need to call Read on them again. You have a generous 1M context window so internalize the files."
-    fi
-    local cap_title
-    cap_title="$(echo "$title" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
-    local body="${cap_title}, hi.
-${item1}
-[2] Your knowledge cutoff is nearly a year old. Keep this in mind
-[3] This is the start of a new session. Use judgement to determine the time that has elapsed between the end of the last session and the start of this session.
-[4] In every turn, you will receive the current timestamp and a directive to be succinct and productive.
-[5] Aether is the only prescribed way to communicate with Boss and other teammates. Do not output text directly because then it only shows up in the terminal and no one can read it there. Boss and all your teammates are in the Aether software, therefore use the Aether MCP to send your messages.
-Bring your A-game!"
-    printf 'sender: boss\nroom: direct-%s\ntimestamp: %s\nbody: %s' "$name" "$ts" "$body"
-}
+MINI_LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/mini-launch.sh"
+AETHER_URL="http://192.168.0.186:51730"
 
 # --- Socket Discovery ---
 
@@ -89,27 +53,42 @@ for os_win in data:
 "
 }
 
-# --- Harness Detection ---
-# Reads harness from janus-config.csv. CSV is the single source of truth.
+# --- Group Mapping (SSH-read ORG.md from Mini) ---
 
-get_harness() {
-    awk -F',' -v name="$1" 'tolower($1) == name { print $4 }' "$JANUS_CSV"
+ORG_CACHE="/tmp/honeybloom-org.md"
+
+cache_org_md() {
+    ssh -o BatchMode=yes -o ConnectTimeout=3 -i "$SSH_KEY" "${MINI_USER}@${MINI_HOST}" \
+        "cat /Users/deepak-macmini/honeybloom/library/ORG.md" > "$ORG_CACHE" 2>/dev/null
 }
 
-get_model_api_id() {
-    awk -F',' -v name="$1" 'tolower($1) == name { print $8 }' "$JANUS_CSV"
-}
-
-get_machine() {
-    local machine
-    machine="$(awk -F',' -v name="$1" 'tolower($1) == name { print $9 }' "$JANUS_CSV")"
-    echo "${machine:-imac}"
-}
-
-get_account() {
-    local account
-    account="$(awk -F',' -v name="$1" 'tolower($1) == name { print $10 }' "$JANUS_CSV")"
-    echo "${account:-oovar}"
+get_group_info() {
+    local input="$1"
+    if ! grep -qi "^Teammate: ${input}$" "$ORG_CACHE" 2>/dev/null; then
+        echo ""
+        return
+    fi
+    local group_line
+    group_line="$(grep -i "^Group:.*\b${input}\b" "$ORG_CACHE" 2>/dev/null | head -1)"
+    if [ -z "$group_line" ]; then
+        echo "SINGLE $input"
+        return
+    fi
+    local host=""
+    if echo "$group_line" | grep -q "(host:"; then
+        host="$(echo "$group_line" | sed 's/.*host: *\([a-z]*\).*/\1/')"
+    fi
+    local members_raw
+    members_raw="$(echo "$group_line" | sed 's/^Group: *//; s/ *(host:.*//')"
+    local members
+    members="$(echo "$members_raw" | tr ',' ' ' | tr -s ' ' | tr '[:upper:]' '[:lower:]' | xargs)"
+    local count
+    count="$(echo "$members" | wc -w | tr -d ' ')"
+    if [ "$count" -ge 3 ]; then
+        echo "TRIO $host $members"
+    else
+        echo "$members"
+    fi
 }
 
 # --- Launch Tab ---
@@ -118,8 +97,7 @@ launch_tab() {
     local socket="$1" name="$2" title="$3" keep_focus="$4" match_near="$5"
     local args=("$KITTEN" "@" "--to" "$socket" "launch" "--type=tab"
                 "--tab-title" "$title" "--title" "$title"
-                "--var" "teammate=$name"
-                "--cwd" "$HOMEDIR/$name")
+                "--var" "teammate=$name")
 
     if [ -n "$match_near" ]; then
         args+=("--location" "after" "--match" "var:teammate=$match_near")
@@ -129,86 +107,24 @@ launch_tab() {
         args+=("--keep-focus")
     fi
 
-    local harness
-    harness="$(get_harness "$name")"
-    if [ -z "$harness" ]; then
-        echo "Error: $name not found in janus-config.csv"
-        return 1
-    fi
-
-    local wakeup_prompt
-    wakeup_prompt="$(build_wakeup_message "$name" "$title" "$harness")"
-
-    local machine
-    machine="$(get_machine "$name")"
-
-    local account
-    account="$(get_account "$name")"
-
-    if [ "$machine" = "mini" ]; then
-        # Write wakeup prompt to temp file on NFS share
-        mkdir -p "$HOMEDIR/.tmp"
-        local wakeup_file="$HOMEDIR/.tmp/wakeup-${name}.txt"
-        printf '%s' "$wakeup_prompt" > "$wakeup_file"
-
-        # Write Mini password to temp file (from iMac Keychain)
-        local pw_file="$HOMEDIR/.tmp/.pw-${name}"
-        security find-generic-password -s hanover-keychain -a deepak-macmini -w > "$pw_file" 2>/dev/null
-        chmod 600 "$pw_file"
-
-        # Determine harness arg for mini-launch.sh
-        local harness_arg="claude"
-        local model_arg=""
-        if [[ "$harness" == *"OpenCode"* ]]; then
-            harness_arg="opencode"
-            model_arg="$(get_model_api_id "$name")"
-        fi
-
-        args+=("/bin/zsh" "-l" "-c"
-               "export PATH=$HOMEDIR/library/scripts:\$PATH; trap 'curl -s -o /dev/null --max-time 3 http://localhost:51730/api/tab-closed?teammate=$name; /bin/rm -f $HOMEDIR/.tmp/.pw-$name $HOMEDIR/.tmp/wakeup-$name.txt' EXIT; ssh -t -i $SSH_KEY ${MINI_USER}@${MINI_HOST} $MINI_LAUNCH $name $harness_arg $model_arg")
-    else
-        # Local launch (iMac)
-        if [[ "$harness" == *"OpenCode"* ]]; then
-            local model_id
-            model_id="$(get_model_api_id "$name")"
-            local model_flag=""
-            if [ -n "$model_id" ]; then
-                model_flag="-m opencode-go/$model_id"
-            fi
-            args+=("/bin/zsh" "-l" "-c"
-                   "export PATH=$HOMEDIR/library/scripts:\$PATH; trap 'curl -s -o /dev/null --max-time 3 http://localhost:51730/api/tab-closed?teammate=$name' EXIT; $OPENCODE $model_flag --prompt \"$wakeup_prompt\"")
-        else
-            args+=("/bin/zsh" "-l" "-c"
-                   "export PATH=$HOMEDIR/library/scripts:\$PATH; trap 'curl -s -o /dev/null --max-time 3 http://localhost:51730/api/tab-closed?teammate=$name' EXIT; $CLAUDE --dangerously-skip-permissions \"$wakeup_prompt\"")
-        fi
-    fi
+    args+=("/bin/zsh" "-l" "-c"
+           "trap 'curl -s -o /dev/null --max-time 3 ${AETHER_URL}/api/tab-closed?teammate=$name' EXIT; ssh -t -i $SSH_KEY ${MINI_USER}@${MINI_HOST} $MINI_LAUNCH $name")
 
     "${args[@]}"
 }
 
-# --- Focus Tab ---
-
-focus_tab() {
-    local socket="$1" name="$2"
-    $KITTEN @ --to "$socket" focus-tab --match "var:teammate=$name" 2>/dev/null
-}
-
 # --- Tab Colors ---
-# Per-tab accent colors applied via set-tab-color after launch.
-# Background only — text colors come from kitty.conf defaults.
 
 get_tab_colors() {
     local name="$1"
     case "$name" in
-        dante|rio|gunnar|kirby|guru|ananya|claire|felix|hana|samara|katja)
+        rio|ananya|claire|felix)
             echo "#8B0000 #5C0000" ;;
         juno)
             echo "#2E7D32 #1B5E20" ;;
-        chica|sierra|pike|daksh|wyatt|nico)
+        chica|sierra|daksh)
             echo "#1565C0 #0D47A1" ;;
-        richie)
-            echo "#B8860B #8B6914" ;;
-        natalie|klara|ines|andrea)
+        andrea)
             echo "#008080 #006060" ;;
     esac
 }
@@ -224,56 +140,7 @@ apply_tab_color() {
         active_bg="$active_bg" inactive_bg="$inactive_bg" 2>/dev/null
 }
 
-# --- Group Mapping (from ORG.md) ---
-# Reads Group: lines from ORG.md. Returns mode + members.
-# Format: "Group: a, b, c (host: a)" or "Group: a, b"
-
-ORG_MD="/Users/deepak-macmini/honeybloom/library/ORG.md"
-
-get_group_info() {
-    local input="$1"
-    # Check if input is a valid teammate in ORG.md Roster
-    if ! grep -qi "^Teammate: ${input}$" "$ORG_MD" 2>/dev/null; then
-        echo ""
-        return
-    fi
-    # Find the Group: line containing this teammate
-    local group_line
-    group_line="$(grep -i "^Group:.*\b${input}\b" "$ORG_MD" 2>/dev/null | head -1)"
-    if [ -z "$group_line" ]; then
-        # Single — not in any group
-        echo "SINGLE $input"
-        return
-    fi
-    # Extract host if present
-    local host=""
-    if echo "$group_line" | grep -q "(host:"; then
-        host="$(echo "$group_line" | sed 's/.*host: *\([a-z]*\).*/\1/')"
-    fi
-    # Extract members (strip "Group:" prefix and "(host: X)" suffix)
-    local members_raw
-    members_raw="$(echo "$group_line" | sed 's/^Group: *//; s/ *(host:.*//')"
-    # Parse comma-separated members into space-separated lowercase
-    local members
-    members="$(echo "$members_raw" | tr ',' ' ' | tr -s ' ' | tr '[:upper:]' '[:lower:]' | xargs)"
-    local count
-    count="$(echo "$members" | wc -w | tr -d ' ')"
-    if [ "$count" -ge 3 ]; then
-        echo "TRIO $host $members"
-    else
-        echo "$members"
-    fi
-}
-
 # --- Main ---
-
-# Notify Aether that these teammates' tabs are open
-notify_aether() {
-    local name="$1"
-    curl -s -X POST "http://localhost:51730/api/rooms/activate" \
-        -H "Content-Type: application/json" \
-        -d "{\"name\": \"$name\"}" >/dev/null 2>&1 || true
-}
 
 SOLO=false
 if [ "$1" = "--solo" ]; then
@@ -283,11 +150,25 @@ fi
 
 INPUT="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
 
-# Validate teammate name before doing anything else
-PAIR_INFO="$(get_group_info "$INPUT")"
-if [ -z "$PAIR_INFO" ]; then
-    echo "Unknown teammate: $1"
-    exit 1
+# Cache ORG.md from Mini (only needed for group logic in non-solo mode)
+if ! $SOLO; then
+    cache_org_md
+fi
+
+# For solo mode, create a minimal ORG cache so validation works
+if $SOLO; then
+    # Validate teammate exists via SSH
+    if ! ssh -o BatchMode=yes -o ConnectTimeout=3 -i "$SSH_KEY" "${MINI_USER}@${MINI_HOST}" \
+        "grep -qi '^Teammate: ${INPUT}$' /Users/deepak-macmini/honeybloom/library/ORG.md" 2>/dev/null; then
+        echo "Unknown teammate: $1"
+        exit 1
+    fi
+else
+    PAIR_INFO="$(get_group_info "$INPUT")"
+    if [ -z "$PAIR_INFO" ]; then
+        echo "Unknown teammate: $1"
+        exit 1
+    fi
 fi
 
 # Ensure Kitty is running and socket is available
@@ -309,41 +190,29 @@ if [ -z "$SOCKET" ]; then
     fi
 fi
 
-# Capture frontmost app before any Kitty operations (restore at end)
+# Capture frontmost app before any Kitty operations
 FRONT_APP="$(osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true' 2>/dev/null)"
 
 EXISTING="$(get_existing_teammates "$SOCKET")"
 
-MODE="$(echo "$PAIR_INFO" | awk '{print $1}')"
-
-if [ "$MODE" = "SINGLE" ]; then
-    # Single teammate
-    NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
-
-    if ! echo "$EXISTING" | grep -qx "$NAME"; then
-        launch_tab "$SOCKET" "$NAME" "$NAME" "no" ""
-        apply_tab_color "$SOCKET" "$NAME"
-        notify_aether "$NAME"
+if $SOLO; then
+    # Solo mode — open only the named teammate
+    if ! echo "$EXISTING" | grep -qx "$INPUT"; then
+        launch_tab "$SOCKET" "$INPUT" "$INPUT" "no" ""
+        apply_tab_color "$SOCKET" "$INPUT"
     fi
-elif [ "$MODE" = "TRIO" ]; then
-    # Three+ teammates — open all missing, skip existing
-    HOST="$(echo "$PAIR_INFO" | awk '{print $2}')"
-    # Members are fields 3 onward
-    MEMBERS="$(echo "$PAIR_INFO" | cut -d' ' -f3-)"
+else
+    MODE="$(echo "$PAIR_INFO" | awk '{print $1}')"
 
-    if $SOLO; then
-        # Solo mode — open only the named teammate
-        for NAME in $MEMBERS; do
-            if [ "$INPUT" = "$NAME" ]; then
-                if ! echo "$EXISTING" | grep -qx "$NAME"; then
-                    launch_tab "$SOCKET" "$NAME" "$NAME" "no" ""
-                    apply_tab_color "$SOCKET" "$NAME"
-                    notify_aether "$NAME"
-                fi
-                break
-            fi
-        done
-    else
+    if [ "$MODE" = "SINGLE" ]; then
+        NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
+        if ! echo "$EXISTING" | grep -qx "$NAME"; then
+            launch_tab "$SOCKET" "$NAME" "$NAME" "no" ""
+            apply_tab_color "$SOCKET" "$NAME"
+        fi
+    elif [ "$MODE" = "TRIO" ]; then
+        HOST="$(echo "$PAIR_INFO" | awk '{print $2}')"
+        MEMBERS="$(echo "$PAIR_INFO" | cut -d' ' -f3-)"
         PREV=""
         for NAME in $MEMBERS; do
             if ! echo "$EXISTING" | grep -qx "$NAME"; then
@@ -351,68 +220,49 @@ elif [ "$MODE" = "TRIO" ]; then
                 [ -z "$PREV" ] && NEEDS_GROUP="yes"
                 launch_tab "$SOCKET" "$NAME" "$NAME" "$NEEDS_GROUP" "$PREV"
                 apply_tab_color "$SOCKET" "$NAME"
-                notify_aether "$NAME"
             fi
             PREV="$NAME"
         done
-        # Auto-start huddle after all group tabs are opened
+        # Auto-start huddle
         PARTICIPANTS_JSON="$(echo "$MEMBERS" | awk '{for(i=1;i<=NF;i++) printf "\"%s\"%s", $i, (i<NF?",":"")}')"
-        curl -s -o /dev/null "http://localhost:51730/api/huddle" \
+        curl -s -o /dev/null "${AETHER_URL}/api/huddle" \
             -X POST -H "Content-Type: application/json" \
             -d "{\"action\":\"start\",\"host\":\"$HOST\",\"participants\":[$PARTICIPANTS_JSON]}" &
-    fi
-else
-    # Paired teammates (duo)
-    LEFT_NAME="$(echo "$PAIR_INFO" | awk '{print $1}')"
-    RIGHT_NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
-
-    if $SOLO; then
-        # Solo mode — open only the named teammate, skip their partner
-        if ! echo "$EXISTING" | grep -qx "$INPUT"; then
-            launch_tab "$SOCKET" "$INPUT" "$INPUT" "no" ""
-            apply_tab_color "$SOCKET" "$INPUT"
-            notify_aether "$INPUT"
-        fi
     else
+        # Paired teammates (duo)
+        LEFT_NAME="$(echo "$PAIR_INFO" | awk '{print $1}')"
+        RIGHT_NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
         LEFT_EXISTS=false
         RIGHT_EXISTS=false
         echo "$EXISTING" | grep -qx "$LEFT_NAME" && LEFT_EXISTS=true
         echo "$EXISTING" | grep -qx "$RIGHT_NAME" && RIGHT_EXISTS=true
 
         if $LEFT_EXISTS && $RIGHT_EXISTS; then
-            : # Both exist — nothing to do
+            :
         elif ! $LEFT_EXISTS && ! $RIGHT_EXISTS; then
-            # Neither exists — open both
             launch_tab "$SOCKET" "$LEFT_NAME" "$LEFT_NAME" "yes" ""
             apply_tab_color "$SOCKET" "$LEFT_NAME"
-            notify_aether "$LEFT_NAME"
             launch_tab "$SOCKET" "$RIGHT_NAME" "$RIGHT_NAME" "no" "$LEFT_NAME"
             apply_tab_color "$SOCKET" "$RIGHT_NAME"
-            notify_aether "$RIGHT_NAME"
         else
-            # One exists — open only the missing one
             if ! $LEFT_EXISTS; then
                 launch_tab "$SOCKET" "$LEFT_NAME" "$LEFT_NAME" "no" "$RIGHT_NAME"
                 apply_tab_color "$SOCKET" "$LEFT_NAME"
-                notify_aether "$LEFT_NAME"
             else
                 launch_tab "$SOCKET" "$RIGHT_NAME" "$RIGHT_NAME" "no" "$LEFT_NAME"
                 apply_tab_color "$SOCKET" "$RIGHT_NAME"
-                notify_aether "$RIGHT_NAME"
             fi
         fi
     fi
 fi
 
-# Restore frontmost app (prevents Kitty from stealing focus from Safari/Aether)
+# Restore frontmost app
 if [ -n "$FRONT_APP" ]; then
     osascript -e "tell application \"$FRONT_APP\" to activate" 2>/dev/null || true
 fi
 
 # Close the default blank tab that Kitty opens on launch
-# Only when WE launched Kitty — never touch pre-existing tabs
 if $WE_LAUNCHED; then
-    rm -f /tmp/kitty-huddles.json
     DEFAULT_WINDOWS=$($KITTEN @ --to "$SOCKET" ls 2>/dev/null | /usr/bin/python3 -c "
 import json, sys
 data = json.load(sys.stdin)

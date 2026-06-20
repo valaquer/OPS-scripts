@@ -5,10 +5,9 @@
 # @raycast.title Start
 # @raycast.mode silent
 
-# Opens 9 teammates. No auto-huddles — Boss starts huddles manually.
-# All on Mac Mini (cryo reduction Jun 17 2026).
+# Opens 9 teammates. No auto-huddles -- Boss starts huddles manually.
 
-LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/kitty-open-teammate.sh"
+LAUNCH="/Users/d.patnaik/raycast-scripts/kitty-open-teammate.sh"
 
 open_tab() {
     "$LAUNCH" --solo "$1" &
