@@ -1,0 +1,76 @@
+#!/bin/bash
+# REQ-258: Safe delete wrapper — moves files to recycle bin instead of deleting
+# Deployed via PATH priority (chica/scripts before /bin)
+
+RECYCLE_BIN="/Users/d.patnaik/honeybloom/recycle-bin"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+# Dangerous paths — refuse outright
+DANGEROUS="/ /Users /System /Library /bin /usr /sbin /var /etc /tmp /opt /private"
+
+# Separate flags from file/dir arguments
+flags=()
+targets=()
+has_force=false
+past_separator=false
+
+for arg in "$@"; do
+    if [ "$past_separator" = true ]; then
+        targets+=("$arg")
+    elif [ "$arg" = "--" ]; then
+        past_separator=true
+    elif [[ "$arg" == -* ]]; then
+        flags+=("$arg")
+        [[ "$arg" == *f* ]] && has_force=true
+    else
+        targets+=("$arg")
+    fi
+done
+
+# No targets — pass through to real rm (e.g. rm --help, rm --version)
+if [ ${#targets[@]} -eq 0 ]; then
+    /bin/rm "${flags[@]}"
+    exit $?
+fi
+
+# Create recycle bin if needed
+mkdir -p "$RECYCLE_BIN"
+
+exit_code=0
+for target in "${targets[@]}"; do
+    # Resolve to absolute path for safety check
+    abs_path=$(cd "$(dirname "$target" 2>/dev/null)" 2>/dev/null && echo "$(pwd)/$(basename "$target")" || echo "$target")
+
+    # Refuse dangerous paths
+    for dangerous in $DANGEROUS; do
+        if [ "$abs_path" = "$dangerous" ] || [ "$target" = "$dangerous" ]; then
+            echo "rm: refusing to remove '$target' — protected path" >&2
+            exit_code=1
+            continue 2
+        fi
+    done
+
+    # Check existence
+    if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+        if [ "$has_force" = false ]; then
+            echo "rm: $target: No such file or directory" >&2
+            exit_code=1
+        fi
+        continue
+    fi
+
+    # Move to recycle bin with timestamp prefix
+    dest="$RECYCLE_BIN/${TIMESTAMP}-$(basename "$target")"
+    # Handle collision (same basename in same second)
+    if [ -e "$dest" ]; then
+        dest="${dest}-$$"
+    fi
+
+    mv "$target" "$dest" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "rm: failed to move '$target' to recycle bin" >&2
+        exit_code=1
+    fi
+done
+
+exit $exit_code

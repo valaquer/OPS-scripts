@@ -1,0 +1,24 @@
+teammate,role,model,harness,provider,api_key,effort_level
+Gunnar,Head of Strategy,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Samara,Chief of Staff,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Dante,Visual Pipeline Lead,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Sierra,Engineering Principal,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Hana,Chat Engine Lead,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Wyatt,Engineering Principal,DeepSeek V4 Pro,OpenCode (fork),Ollama Cloud Max,ollama-cloud-api-key,high
+Klara,Director LLM,DeepSeek V4 Pro,OpenCode (fork),Ollama Cloud Max,ollama-cloud-api-key,high
+Guru,App Lead,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Daksh,Engineering Principal,DeepSeek V4 Pro,OpenCode (fork),Ollama Cloud Max,ollama-cloud-api-key,high
+Kirby,Guerrilla Marketer,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Eva,Copywriter,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Ananya,Community Manager,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Juno,R&D Lead,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Pike,R&D Principal,DeepSeek V4 Pro,OpenCode (fork),Ollama Cloud Max,ollama-cloud-api-key,high
+Rio,Internal Tooling Lead,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Chica,Internal Tooling Principal,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Natalie,Internal Tooling Principal,DeepSeek V4 Pro,OpenCode (fork),Ollama Cloud Max,ollama-cloud-api-key,high
+Claire,Curator,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Felix,Wealth Advisor,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Katja,Therapist,DeepSeek V4 Pro,OpenCode (fork),Ollama Cloud Max,ollama-cloud-api-key,high
+Richie,Aide-de-Camp,claude-opus-4-6[1m],Claude Code 2.1.74,Anthropic,Claude Max,high
+Ines,Engineering Principal,DeepSeek V4 Pro,OpenCode (fork),Ollama Cloud Max,ollama-cloud-api-key,high
+sandbox,LLM Sandbox,DeepSeek V3 0324,OpenCode (fork),OpenRouter,OpenRouter API Key,high
