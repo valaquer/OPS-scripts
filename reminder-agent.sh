@@ -56,9 +56,9 @@ line_hash() {
     echo -n "$1" | md5 -q | head -c 8
 }
 
-# Check if Facade is running
+# Check if Aether is running
 if ! curl -s -o /dev/null --max-time 2 "$AETHER_URL/api/pulse"; then
-    exit 0  # Facade not up, try next minute
+    exit 0  # Aether not up, try next minute
 fi
 
 # Process each teammate

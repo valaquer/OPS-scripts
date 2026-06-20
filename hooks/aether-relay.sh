@@ -1,5 +1,5 @@
 #!/bin/bash
-# PostToolUse hook: relay tool activity to Facade for live mirror.
+# PostToolUse hook: relay tool activity to Aether for live mirror.
 # Zero cost when inactive — checks flag file and exits immediately if absent.
 
 # Global live mirror flag — if absent, exit immediately
@@ -134,7 +134,7 @@ esac
 ACTIVE_ROOM="$(curl -s --max-time 1 "${AETHER_URL:-http://localhost:51730}/api/active-rooms?teammate=${TEAMMATE}" 2>/dev/null | jq -r '.[0] // empty' 2>/dev/null)"
 ROOM="${ACTIVE_ROOM:-direct-${TEAMMATE}}"
 
-# POST to Facade — env vars + temp file to avoid shell arg limits on large output
+# POST to Aether — env vars + temp file to avoid shell arg limits on large output
 export RELAY_SENDER="$TEAMMATE"
 export RELAY_ROOM="$ROOM"
 export RELAY_TOOL_NAME="$TOOL_NAME"

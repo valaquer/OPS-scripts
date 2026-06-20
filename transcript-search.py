@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Search Facade conversations and session transcripts for keyword matches."""
+"""Search Aether conversations and session transcripts for keyword matches."""
 
 import argparse
 import json
@@ -11,7 +11,7 @@ import sys
 
 PROJECT_BASE = os.path.expanduser("~/.claude/projects")
 DIR_PREFIX = "-Users-d-patnaik-honeybloom-"
-FACADE_DB = "/Users/deepak-macmini/honeybloom/library/aether/aether.db"
+AETHER_DB = "/Users/deepak-macmini/honeybloom/library/aether/aether.db"
 
 
 def resolve_project_dir(teammate):
@@ -133,15 +133,15 @@ def resolve_aether_rooms(teammate, cursor):
 
 
 def search_aether(query_lower, limit, teammate, room=None):
-    """Search Facade messages, returning results list."""
+    """Search Aether messages, returning results list."""
     results = []
-    if not os.path.isfile(FACADE_DB):
-        print(f"Facade DB not found at {FACADE_DB}", file=sys.stderr)
+    if not os.path.isfile(AETHER_DB):
+        print(f"Aether DB not found at {AETHER_DB}", file=sys.stderr)
         return results
 
     conn = None
     try:
-        conn = sqlite3.connect(FACADE_DB)
+        conn = sqlite3.connect(AETHER_DB)
         conn.execute("PRAGMA query_only = ON")
         cursor = conn.cursor()
         if room:
@@ -175,7 +175,7 @@ def search_aether(query_lower, limit, teammate, room=None):
                 snippet = make_snippet(content, match_pos, match_pos + len(query_lower))
                 results.append(f"aether:{rowid}  [{ts}]  {sender}: {snippet}")
     except sqlite3.Error as e:
-        print(f"Facade DB error: {e}", file=sys.stderr)
+        print(f"Aether DB error: {e}", file=sys.stderr)
     finally:
         if conn:
             conn.close()
@@ -184,7 +184,7 @@ def search_aether(query_lower, limit, teammate, room=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Search Facade conversations and session transcripts for keywords.")
+    parser = argparse.ArgumentParser(description="Search Aether conversations and session transcripts for keywords.")
     parser.add_argument("query", help="Search keyword or phrase")
     parser.add_argument("--teammate", "-t", help="Teammate name (default: from cwd)")
     parser.add_argument("--room", "-r", help="Room ID to search (e.g. direct-chica-20260527)")

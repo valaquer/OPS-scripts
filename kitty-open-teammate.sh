@@ -18,7 +18,7 @@ MINI_USER="deepak-macmini"
 MINI_HOST="192.168.0.186"
 MINI_LAUNCH="$HOMEDIR/library/scripts/mini-launch.sh"
 
-# Boss's wakeup prompt formatted as Facade structured metadata.
+# Boss's wakeup prompt formatted as Aether structured metadata.
 # Teammates see this as an Aether message and naturally reply via post_to_aether.
 build_wakeup_message() {
     local name="$1" title="$2" harness="${3:-Claude Code}"
@@ -46,7 +46,7 @@ ${item1}
 [2] Your knowledge cutoff is nearly a year old. Keep this in mind
 [3] This is the start of a new session. Use judgement to determine the time that has elapsed between the end of the last session and the start of this session.
 [4] In every turn, you will receive the current timestamp and a directive to be succinct and productive.
-[5] Facade is the only prescribed way to communicate with Boss and other teammates. Do not output text directly because then it only shows up in the terminal and no one can read it there. Boss and all your teammates are in the Facade software, therefore use the Facade MCP to send your messages.
+[5] Aether is the only prescribed way to communicate with Boss and other teammates. Do not output text directly because then it only shows up in the terminal and no one can read it there. Boss and all your teammates are in the Aether software, therefore use the Aether MCP to send your messages.
 Bring your A-game!"
     printf 'sender: boss\nroom: direct-%s\ntimestamp: %s\nbody: %s' "$name" "$ts" "$body"
 }
@@ -267,7 +267,7 @@ get_group_info() {
 
 # --- Main ---
 
-# Notify Facade that these teammates' tabs are open
+# Notify Aether that these teammates' tabs are open
 notify_aether() {
     local name="$1"
     curl -s -X POST "http://localhost:51730/api/rooms/activate" \
@@ -404,7 +404,7 @@ else
     fi
 fi
 
-# Restore frontmost app (prevents Kitty from stealing focus from Safari/Facade)
+# Restore frontmost app (prevents Kitty from stealing focus from Safari/Aether)
 if [ -n "$FRONT_APP" ]; then
     osascript -e "tell application \"$FRONT_APP\" to activate" 2>/dev/null || true
 fi

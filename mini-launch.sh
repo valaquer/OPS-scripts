@@ -35,7 +35,7 @@ fi
 # Change to teammate directory (NFS path parity)
 cd "$HOMEDIR/$NAME" || exit 1
 
-# Set Facade URL for shell hooks (LAN IP instead of localhost)
+# Set Aether URL for shell hooks (LAN IP instead of localhost)
 export AETHER_URL="http://localhost:51730"
 
 # Launch harness
