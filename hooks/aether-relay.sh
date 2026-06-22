@@ -44,7 +44,18 @@ fi
 
 # FP-12 Credential Relay filter — line-level redaction for sensitive file paths and raw keys
 # Keychain subshell expansion is the primary defense. This filter redacts matching lines, not entire cards.
-CRED_REGEX='auth\.json|credentials\.json|\.env[^a-z]|tokens/|\.keys|\.pem|\.p12|(sk|pk|key|tok|ghp|gho)[-_][A-Za-z0-9_-]{20,}|find-generic-password|add-generic-password|delete-generic-password|eyJ[A-Za-z0-9_-]{20,}|vault\.py (get|dump)|safe\.sh (mount|create)'
+
+# Gap 2 fix: Write/Edit to sensitive paths — redact entire card
+TOOL_NAME_LC=$(echo "$TOOL_NAME" | tr '[:upper:]' '[:lower:]')
+if [[ "$TOOL_NAME_LC" == "write" || "$TOOL_NAME_LC" == "edit" ]]; then
+    SENS_PATH=$(echo "$TOOL_INPUT" | jq -r '.file_path // ""' 2>/dev/null)
+    if echo "$SENS_PATH" | grep -qEi '\.secrets/|\.keychain|\.env$|password|credential|token|\.ssh/'; then
+        TOOL_INPUT='[credential redacted]'
+        TOOL_OUTPUT='[credential redacted]'
+    fi
+fi
+
+CRED_REGEX='auth\.json|credentials\.json|\.env[^a-z]|tokens/|\.keys|\.pem|\.p12|(sk|pk|key|tok|ghp|gho|sbp)[-_][A-Za-z0-9_-]{20,}|find-generic-password|add-generic-password|delete-generic-password|eyJ[A-Za-z0-9_-]{20,}|vault\.py (get|dump)|safe\.sh (mount|create)'
 TOOL_INPUT_ORIG="$TOOL_INPUT"
 TOOL_INPUT=$(echo "$TOOL_INPUT" | sed -E "s#.*($CRED_REGEX).*#[credential redacted]#g")
 if [[ "$TOOL_INPUT" != "$TOOL_INPUT_ORIG" ]]; then
