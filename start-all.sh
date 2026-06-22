@@ -10,8 +10,8 @@
 # @raycast.title Start
 # @raycast.mode silent
 
-# Opens 14 teammates + 9 auto-huddles (5 pairs + 4 solos).
-# All on Mac Mini (Jun 21 2026 restructure).
+# Opens 15 teammates + 5 auto-huddles (pairs/groups only).
+# All on Mac Mini (Jun 22 2026 update).
 
 LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/kitty-open-teammate.sh"
 
@@ -29,6 +29,12 @@ open_tab felix
 
 # UI & UX
 open_tab andrea
+
+# Knowledge
+open_tab claire
+
+# Credential Security
+open_tab burt
 
 # --- Groups (auto-huddle after tabs open) ---
 
@@ -48,10 +54,9 @@ open_tab daksh
 open_tab kirby
 open_tab ananya
 
-# R&D + Knowledge
+# R&D
 open_tab juno
 open_tab pike
-open_tab claire
 
 wait
 
@@ -70,10 +75,6 @@ start_huddle() {
         > /dev/null 2>&1 &
 }
 
-start_huddle gunnar gunnar
-start_huddle felix felix
-start_huddle andrea andrea
-start_huddle claire claire
 start_huddle rio rio chica
 start_huddle dante dante sierra
 start_huddle guru guru daksh
