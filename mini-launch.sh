@@ -15,6 +15,10 @@ export PATH="$HOMEDIR/library/scripts:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH
 CLAUDE="/opt/homebrew/bin/claude"
 OPENCODE="/opt/homebrew/bin/opencode"
 
+# Unlock Keychain for SSH session (macOS locks it for remote connections)
+MINI_PASS=$(ssh -i /Users/deepak-macmini/.ssh/id_mini -o ConnectTimeout=3 d.patnaik@192.168.0.153 "cat ~/.secrets/hanover-keychain" 2>/dev/null)
+[ -n "$MINI_PASS" ] && security unlock-keychain -p "$MINI_PASS" 2>/dev/null
+
 # Read field from janus-config.csv
 get_field() {
     awk -F',' -v name="$1" -v col="$2" 'tolower($1) == name { print $col }' "$JANUS_CSV"
