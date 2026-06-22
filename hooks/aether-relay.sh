@@ -6,6 +6,8 @@
 GLOBAL_FLAG="/Users/deepak-macmini/honeybloom/library/aether/livemirror-global"
 [[ ! -f "$GLOBAL_FLAG" ]] && exit 0
 
+# Burt's activity goes to direct-burt only (Boss's eyes only)
+
 # OpenCode sets OPENCODE_HOOK_TYPE env var. Use env vars directly, skip stdin.
 if [[ -n "${OPENCODE_HOOK_TYPE:-}" ]]; then
     TEAMMATE=$(basename "$PWD")
