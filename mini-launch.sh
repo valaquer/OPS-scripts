@@ -13,7 +13,7 @@ JANUS_CSV="$HOMEDIR/library/skills/gestalt-layer-3-janus/janus-config.csv"
 export PATH="$HOMEDIR/library/scripts:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 
 CLAUDE="/opt/homebrew/bin/claude"
-OPENCODE="$HOME/.opencode/bin/opencode"
+OPENCODE="/opt/homebrew/bin/opencode"
 
 # Read field from janus-config.csv
 get_field() {
