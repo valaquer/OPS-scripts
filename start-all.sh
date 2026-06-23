@@ -75,9 +75,9 @@ start_huddle() {
         > /dev/null 2>&1 &
 }
 
-start_huddle rio rio chica guru daksh
+start_huddle rio rio chica
 start_huddle dante dante sierra
-start_huddle guru guru daksh rio chica
+start_huddle guru guru daksh
 start_huddle kirby kirby ananya
 start_huddle juno juno pike
 
