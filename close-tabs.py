@@ -17,7 +17,7 @@ import json
 KITTEN = "/opt/homebrew/bin/kitten"
 
 ORG_PATH = "/Users/deepak-macmini/honeybloom/library/ORG.md"
-JANUS_CSV = "/Users/deepak-macmini/honeybloom/library/skills/gestalt-layer-3-janus/janus-config.csv"
+JANUS_CSV = "/Users/deepak-macmini/honeybloom/library/skills/runbook-janus/janus-config.csv"
 SSH_KEY = "/Users/deepak-macmini/.ssh/id_hanover"
 MINI_USER = "deepak-macmini"
 MINI_HOST = "192.168.0.186"
