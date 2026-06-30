@@ -160,7 +160,7 @@ jq -n '{
     sender: env.RELAY_SENDER,
     room: env.RELAY_ROOM,
     toolName: env.RELAY_TOOL_NAME,
-    toolInput: (env.RELAY_TOOL_INPUT | try fromjson catch .),
+    toolInput: (env.RELAY_TOOL_INPUT | try fromjson catch env.RELAY_TOOL_INPUT),
     toolOutput: env.RELAY_TOOL_OUTPUT,
     status: "success",
     summary: env.RELAY_SUMMARY
