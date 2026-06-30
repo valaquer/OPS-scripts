@@ -10,66 +10,67 @@
 # @raycast.title Start
 # @raycast.mode silent
 
-# Opens 21 teammates + 9 auto-huddles (pairs/trios/groups/solos).
-# All on Mac Mini (Jun 26 2026 update).
+# Opens 23 teammates (staggered) + 9 auto-huddles.
+# All on Mac Mini. 7 batches with 60s gaps to avoid API rate limits.
 
 LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/kitty-open-teammate.sh"
 
 open_tab() {
+    # Skip if teammate already has an active Kitty tab
+    if kitten @ ls 2>/dev/null | grep -q "\"title\": \"$1\""; then
+        return
+    fi
     "$LAUNCH" --solo "$1" &
 }
 
-# --- Individuals (no auto-huddle) ---
-
-# Strategy
+# --- Batch 1: Strategy, Finance, Credentials, Investor, UI/UX ---
 open_tab gunnar
-
-# Finance
 open_tab felix
-
-# UI & UX
-open_tab andrea
-
-# Knowledge
-open_tab claire
-
-# Credential Security
 open_tab burt
-
-# Cohen
 open_tab cohen
+open_tab andrea
+wait
+sleep 60
 
-# --- Groups (auto-huddle after tabs open) ---
-
-# Ops
+# --- Batch 2: Ops ---
 open_tab rio
 open_tab chica
 open_tab natalie
+wait
+sleep 60
 
-# Visual + Chat AI
+# --- Batch 3: Studio ---
 open_tab dante
 open_tab sierra
 open_tab cindy
+wait
+sleep 60
 
-# Visual Pipeline
+# --- Batch 4: Chat Engine ---
 open_tab hana
 open_tab wyatt
 open_tab klara
+wait
+sleep 60
 
-# Product Engineering (Prague)
+# --- Batch 5: Engineering ---
 open_tab guru
 open_tab daksh
 open_tab ines
+wait
+sleep 60
 
-# Growth
+# --- Batch 6: Growth ---
 open_tab kirby
 open_tab ananya
 open_tab nora
+wait
+sleep 60
 
-# R&D
+# --- Batch 7: Intel, Skills ---
 open_tab juno
 open_tab pike
-
+open_tab claire
 wait
 
 # Auto-huddles for each group
