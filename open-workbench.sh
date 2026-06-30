@@ -32,5 +32,4 @@ while [ $WAIT -lt 30 ]; do
 done
 
 open -a Safari "${MINI_URL}/styleguide"
-open -a Safari "${MINI_URL}/bavaria"
 open -a Safari "${MINI_URL}/lisbon"
