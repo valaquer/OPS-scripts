@@ -26,6 +26,7 @@ library/scripts/                          # Repo root (valaquer/OPS-scripts)
 ├── mini-launch.sh                      # ACTIVE — Mini-side launcher (NFS-shared)
 ├── open-facade.sh                      # ACTIVE — Raycast "Facade"
 ├── open-workbench.sh                   # ACTIVE — Raycast "Workbench" (3 tabs)
+├── provision-workbench-app.sh          # ACTIVE — Scaffold new Workbench-family app from template
 ├── open-markwhen.sh                    # ACTIVE — Raycast "Markwhen"
 ├── reminder-agent.sh                   # ACTIVE — Launchd reminder agent
 ├── com.honeybloom.reminder-agent.plist # ACTIVE — Launchd plist for reminder agent
@@ -144,6 +145,7 @@ reminder-agent.sh → ORG.md roster + REMINDERS.md files + Facade /api/pulse
 open-facade.sh → starts Facade dev server (port 51730) + opens Safari
 open-workbench.sh → starts Workbench dev server (port 51740) + opens 3 Safari tabs
 open-markwhen.sh → ensures Facade running + opens markwhen-fork.html
+provision-workbench-app.sh → copies template, replaces placeholders, creates symlinks + GitHub repo, registers in workbench-apps.json
 ```
 
 ### 5. Emergency Failover Cluster
