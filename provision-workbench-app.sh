@@ -33,6 +33,7 @@ echo "==> Replacing placeholders"
 sed -i '' "s/__APP_NAME__/$APP_NAME/g" "$TARGET/package.json"
 sed -i '' "s/__PORT__/$PORT/g" "$TARGET/vite.config.ts"
 sed -i '' "s/__APP_TITLE__/$APP_TITLE/g" "$TARGET/src/routes/+page.svelte"
+sed -i '' "s/__APP_TITLE__/$APP_TITLE/g" "$TARGET/src/app.html"
 sed -i '' "s/__APP_NAME__/$APP_NAME/g" "$TARGET/src/routes/+page.svelte"
 
 echo "==> Creating symlinks"
