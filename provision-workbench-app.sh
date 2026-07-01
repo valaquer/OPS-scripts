@@ -19,7 +19,7 @@ LIBRARY="/Users/deepak-macmini/honeybloom/library"
 TEMPLATE="$LIBRARY/workbench-template"
 TARGET="$LIBRARY/${APP_NAME}-app"
 REGISTRY="$LIBRARY/aether/workbench-apps.json"
-APP_TITLE="$(echo "$APP_NAME" | sed 's/./\U&/')"
+APP_TITLE="$(echo "$APP_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
 
 if [[ -d "$TARGET" ]]; then
 	echo "Error: $TARGET already exists."
