@@ -10,7 +10,7 @@
 # @raycast.title Start
 # @raycast.mode silent
 
-# Opens 23 teammates (staggered) + 7 auto-huddles.
+# Opens 24 teammates (staggered) + 7 auto-huddles.
 # All on Mac Mini. 7 batches with 60s gaps to avoid API rate limits.
 # Each group's huddle starts as soon as its batch lands.
 
@@ -35,12 +35,13 @@ start_huddle() {
         > /dev/null 2>&1 &
 }
 
-# --- Batch 1: Strategy, Finance, Credentials, Investor, UI/UX ---
+# --- Batch 1: Strategy, Finance, Credentials, Investor, UI/UX, Analyst ---
 open_tab gunnar
 open_tab felix
 open_tab burt
 open_tab cohen
 open_tab andrea
+open_tab jeh
 wait
 start_huddle gunnar gunnar cohen
 sleep 60
