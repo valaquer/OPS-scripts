@@ -7,7 +7,7 @@ NAME="$1"
 [ -z "$NAME" ] && echo "Usage: mini-launch.sh <name>" && exit 1
 
 HOMEDIR="/Users/deepak-macmini/honeybloom"
-JANUS_CSV="$HOMEDIR/library/skills/runbook-janus/janus-config.csv"
+JANUS_CSV="$HOMEDIR/library/skills/runbook-janus-coding/janus-config.csv"
 
 # Ensure Homebrew is in PATH (SSH non-login shell)
 export PATH="$HOMEDIR/library/scripts:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
