@@ -59,11 +59,11 @@ fi
 
 CRED_REGEX='auth\.json|credentials\.json|\.env[^a-z]|tokens/|\.keys|\.pem|\.p12|(sk|pk|key|tok|ghp|gho|sbp)[-_][A-Za-z0-9_-]{20,}|find-generic-password|add-generic-password|delete-generic-password|eyJ[A-Za-z0-9_-]{20,}|vault\.py (get|dump)|safe\.sh (mount|create)'
 TOOL_INPUT_ORIG="$TOOL_INPUT"
-TOOL_INPUT=$(echo "$TOOL_INPUT" | sed -E "s#.*($CRED_REGEX).*#[credential redacted]#g")
+TOOL_INPUT=$(echo "$TOOL_INPUT" | sed -E "s#($CRED_REGEX)#[redacted]#g")
 if [[ "$TOOL_INPUT" != "$TOOL_INPUT_ORIG" ]]; then
     TOOL_OUTPUT="[credential redacted]"
 else
-    TOOL_OUTPUT=$(echo "$TOOL_OUTPUT" | sed -E "s#.*($CRED_REGEX).*#[credential redacted]#g")
+    TOOL_OUTPUT=$(echo "$TOOL_OUTPUT" | sed -E "s#($CRED_REGEX)#[redacted]#g")
 fi
 
 # Generate summary for read-only tool activity
