@@ -38,10 +38,12 @@ start_huddle() {
 # --- Batch 1: TBD, Finance, Credentials, UI/UX, Analyst ---
 open_tab gunnar
 open_tab felix
+open_tab jake
 open_tab burt
 open_tab andrea
 open_tab jeh
 wait
+start_huddle felix felix jake
 sleep 60
 
 # --- Batch 2: Ops ---
@@ -90,6 +92,6 @@ open_tab pike
 open_tab jukka
 open_tab claire
 wait
-start_huddle juno juno pike jukka
+start_huddle juno juno pike jukka claire
 
 wait
