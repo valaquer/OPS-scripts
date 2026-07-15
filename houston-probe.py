@@ -14,7 +14,7 @@ CREDS_DIR = "/tmp/houston-probe-creds"
 OUTPUT_FILE = "/tmp/houston-probe-results.json"
 
 # --- Config ---
-SUPABASE_REF = "prague"
+SUPABASE_REF = "rdsgujuyoumygpvsmzaq"
 
 # --- Helpers ---
 
@@ -66,13 +66,13 @@ def probe_supabase():
 
     # Health check
     url = f"https://api.supabase.com/v1/projects/{SUPABASE_REF}/health?services=auth,db,pooler,realtime,rest,storage"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {pat}"})
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {pat}", "User-Agent": "Houston/1.0"})
     with urllib.request.urlopen(req, timeout=10) as resp:
         results["health"] = {"http_status": resp.status, "body": json.loads(resp.read())}
 
     # Readonly check
     url = f"https://api.supabase.com/v1/projects/{SUPABASE_REF}/readonly"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {pat}"})
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {pat}", "User-Agent": "Houston/1.0"})
     with urllib.request.urlopen(req, timeout=10) as resp:
         results["readonly"] = {"http_status": resp.status, "body": json.loads(resp.read())}
 
@@ -88,7 +88,7 @@ def probe_resend():
     key = lines[0]
 
     url = "https://api.resend.com/api-keys"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}"})
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}", "User-Agent": "Houston/1.0"})
     with urllib.request.urlopen(req, timeout=10) as resp:
         body = json.loads(resp.read())
         key_count = len(body.get("data", []))
@@ -104,7 +104,7 @@ def probe_openrouter():
     key = lines[0]
 
     url = "https://openrouter.ai/api/v1/models"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}"})
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {key}", "User-Agent": "Houston/1.0"})
     with urllib.request.urlopen(req, timeout=15) as resp:
         body = json.loads(resp.read())
         model_count = len(body.get("data", []))
@@ -128,7 +128,7 @@ def probe_vercel():
     url = "https://api.vercel.com/v7/deployments?limit=3"
     if team_id:
         url += f"&teamId={team_id}"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "User-Agent": "Houston/1.0"})
     with urllib.request.urlopen(req, timeout=10) as resp:
         body = json.loads(resp.read())
         deploys = body.get("deployments", [])
@@ -148,7 +148,7 @@ def probe_vercel():
         url = f"https://api.vercel.com/v3/deployments/{deploy_id}/events"
         if team_id:
             url += f"?teamId={team_id}"
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "User-Agent": "Houston/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = json.loads(resp.read())
             event_count = len(body) if isinstance(body, list) else 0
