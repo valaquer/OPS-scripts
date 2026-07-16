@@ -13,7 +13,11 @@ fi
 
 LEADER="$(echo "$LEADER" | tr '[:upper:]' '[:lower:]')"
 ORG_MD="/Users/deepak-macmini/honeybloom/library/ORG.md"
-LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/kitty-open-teammate.sh"
+# Wake must run on the iMac — kitty-open-teammate.sh is iMac-runtime code
+# (iMac-only SSH key path, local Kitty socket). Route via reverse SSH.
+IMAC_KEY="/Users/deepak-macmini/.ssh/id_mini"
+IMAC_HOST="d.patnaik@192.168.0.153"
+IMAC_LAUNCH="/Users/d.patnaik/raycast-scripts/kitty-open-teammate.sh"
 AETHER_URL="${AETHER_URL:-http://localhost:51730}"
 HUDDLE_URL="$AETHER_URL/api/huddle"
 PINNED_URL="$AETHER_URL/api/pinned-rooms"
@@ -47,7 +51,8 @@ echo "Team $LEADER: ${members[*]}"
 
 echo "Waking ${#members[@]} members..."
 for m in "${members[@]}"; do
-    "$LAUNCH" --solo "$m" &
+    ssh -o BatchMode=yes -o ConnectTimeout=5 -i "$IMAC_KEY" "$IMAC_HOST" \
+        "$IMAC_LAUNCH --solo $m" &
 done
 wait
 echo "All members launched."
