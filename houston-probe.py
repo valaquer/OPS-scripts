@@ -10,7 +10,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
-CREDS_DIR = "/tmp/houston-probe-creds"
+CREDS_DIR = os.path.expanduser("~/.secrets/houston")
 OUTPUT_FILE = "/tmp/houston-probe-results.json"
 
 # --- Config ---
