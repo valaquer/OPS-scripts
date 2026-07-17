@@ -16,8 +16,6 @@ CREDS_DIR = os.path.expanduser("~/.secrets/houston")
 STATE_FILE = os.path.expanduser("~/.secrets/houston/poller-state.json")
 AETHER_URL = os.environ.get("AETHER_URL", "http://localhost:51730")
 ALERT_URL = f"{AETHER_URL}/api/houston-alert"
-HUDDLE_URL = f"{AETHER_URL}/api/huddle"
-WATCHTOWER_ROOM = "huddle-houston-watchtower"
 SUPABASE_REF = "rdsgujuyoumygpvsmzaq"
 UA = "Houston/1.0"
 
@@ -43,30 +41,10 @@ def save_state(state):
         json.dump(state, f, indent=2)
 
 
-def fire_alert(vendor, message, deep_link=None):
-    """Post alert to Aether + watchtower room + auto-add Guru's team."""
-    # 1. Create alert (triggers cop car LED via SSE)
-    data = json.dumps({"vendor": vendor, "message": message, "deep_link": deep_link or ""}).encode()
+def fire_alert(vendor, message, deep_link=None, alert_type="incident"):
+    """Post alert to Aether — server handles watchtower huddle lifecycle."""
+    data = json.dumps({"vendor": vendor, "message": message, "deep_link": deep_link or "", "type": alert_type}).encode()
     req = urllib.request.Request(ALERT_URL, data=data, headers={"Content-Type": "application/json", "User-Agent": UA}, method="POST")
-    try:
-        urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass
-
-    # 2. Post to watchtower room
-    msg = f"🚨 {vendor.upper()}: {message}"
-    if deep_link:
-        msg += f"\nFix: {deep_link}"
-    post_data = json.dumps({"body": msg, "room": WATCHTOWER_ROOM}).encode()
-    req = urllib.request.Request(f"{AETHER_URL}/api/message", data=post_data, headers={"Content-Type": "application/json", "User-Agent": UA}, method="POST")
-    try:
-        urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass
-
-    # 3. Auto-add Guru's team to watchtower
-    add_data = json.dumps({"action": "add", "roomId": WATCHTOWER_ROOM, "participants": ["guru", "daksh", "ines"]}).encode()
-    req = urllib.request.Request(HUDDLE_URL, data=add_data, headers={"Content-Type": "application/json", "User-Agent": UA}, method="POST")
     try:
         urllib.request.urlopen(req, timeout=5)
     except Exception:
@@ -202,6 +180,8 @@ def main():
         # State-change detection: only alert on transition
         if status == "unhealthy" and prev_status != "unhealthy":
             fire_alert(vendor, message, deep_link)
+        elif status == "healthy" and prev_status == "unhealthy":
+            fire_alert(vendor, f"recovered — {message}", alert_type="recovery")
 
         state[vendor] = status
 
