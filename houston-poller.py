@@ -6,14 +6,15 @@ Runs as launchd agent every 2 minutes.
 
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 
-CREDS_DIR = os.path.expanduser("~/.secrets/houston")
-STATE_FILE = os.path.expanduser("~/.secrets/houston/poller-state.json")
+CREDS_DIR = "/Users/houston/.secrets"
+STATE_FILE = "/tmp/houston-poller-state.json"
 AETHER_URL = os.environ.get("AETHER_URL", "http://localhost:51730")
 ALERT_URL = f"{AETHER_URL}/api/houston-alert"
 SUPABASE_REF = "rdsgujuyoumygpvsmzaq"
@@ -41,8 +42,36 @@ def save_state(state):
         json.dump(state, f, indent=2)
 
 
+def ensure_aether():
+    """Check Aether is running (LaunchDaemon keeps it alive)."""
+    try:
+        req = urllib.request.Request(f"{AETHER_URL}/api/houston-alert", headers={"User-Agent": UA})
+        urllib.request.urlopen(req, timeout=3)
+        return True
+    except Exception:
+        return False
+
+
+def open_safari():
+    """Open Safari on iMac to Aether."""
+    try:
+        subprocess.run([
+            "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=3",
+            "-i", "/Users/houston/.ssh/id_houston",
+            "d.patnaik@192.168.0.153",
+            'open -a Safari http://192.168.0.186:51730'
+        ], timeout=10, capture_output=True)
+    except Exception:
+        pass
+
+
 def fire_alert(vendor, message, deep_link=None, alert_type="incident"):
     """Post alert to Aether — server handles watchtower huddle lifecycle."""
+    if not ensure_aether():
+        return
+
+    open_safari()
+
     data = json.dumps({"vendor": vendor, "message": message, "deep_link": deep_link or "", "type": alert_type}).encode()
     req = urllib.request.Request(ALERT_URL, data=data, headers={"Content-Type": "application/json", "User-Agent": UA}, method="POST")
     try:
