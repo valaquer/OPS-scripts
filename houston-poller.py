@@ -178,6 +178,27 @@ def check_cloudflare():
     return "healthy", "API reachable"
 
 
+def check_prague_app():
+    url = "https://prague-navy.vercel.app"
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    resp = urllib.request.urlopen(req, timeout=10)
+    if resp.status == 200:
+        return "healthy", f"app serving (HTTP {resp.status})"
+    return "unhealthy", f"app returned HTTP {resp.status}", "https://prague-navy.vercel.app"
+
+
+def check_prague_supabase():
+    url = f"https://{SUPABASE_REF}.supabase.co/auth/v1/health"
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        resp = urllib.request.urlopen(req, timeout=10)
+        return "healthy", f"project endpoint alive (HTTP {resp.status})"
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            return "healthy", f"project endpoint alive (HTTP {e.code})"
+        return "unhealthy", f"project endpoint HTTP {e.code}", f"https://supabase.com/dashboard/project/{SUPABASE_REF}"
+
+
 # --- Main ---
 
 def main():
@@ -188,6 +209,8 @@ def main():
         ("resend", check_resend),
         ("openrouter", check_openrouter),
         ("cloudflare", check_cloudflare),
+        ("prague_app", check_prague_app),
+        ("prague_supabase", check_prague_supabase),
     ]
 
     for vendor, check_fn in checks:
