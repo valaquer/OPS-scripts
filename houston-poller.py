@@ -14,7 +14,7 @@ import urllib.error
 from datetime import datetime, timezone
 
 CREDS_DIR = "/Users/houston/.secrets"
-STATE_FILE = "/tmp/houston-poller-state.json"
+STATE_FILE = "/var/tmp/houston-poller-state.json"
 AETHER_URL = os.environ.get("AETHER_URL", "http://localhost:51730")
 ALERT_URL = f"{AETHER_URL}/api/houston-alert"
 SUPABASE_REF = "rdsgujuyoumygpvsmzaq"
