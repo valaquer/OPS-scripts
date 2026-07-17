@@ -239,6 +239,18 @@ def main():
 
     save_state(state)
 
+    try:
+        hb_data = json.dumps({"state": state}).encode()
+        hb_req = urllib.request.Request(
+            f"{AETHER_URL}/api/houston-heartbeat",
+            data=hb_data,
+            headers={"Content-Type": "application/json", "User-Agent": UA},
+            method="POST"
+        )
+        urllib.request.urlopen(hb_req, timeout=5)
+    except Exception:
+        pass
+
 
 if __name__ == "__main__":
     main()
