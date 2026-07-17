@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Houston poller — REQ-4.
+"""Houston poller — REQ-4 + REQ-9 logbook.
 Polls vendor APIs on interval, detects anomalies, fires alerts.
 Runs as launchd agent every 2 minutes.
+All activity logged to append-only SQLite DB (no UPDATE, no DELETE).
 """
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import time
@@ -15,10 +17,87 @@ from datetime import datetime, timezone
 
 CREDS_DIR = "/Users/houston/.secrets"
 STATE_FILE = "/var/tmp/houston-poller-state.json"
+HOUSTON_DB = "/Users/deepak-macmini/honeybloom/library/houston-app/houston.db"
 AETHER_URL = os.environ.get("AETHER_URL", "http://localhost:51730")
 ALERT_URL = f"{AETHER_URL}/api/houston-alert"
 SUPABASE_REF = "rdsgujuyoumygpvsmzaq"
 UA = "Houston/1.0"
+
+# --- Logbook ---
+
+def init_db():
+    conn = sqlite3.connect(HOUSTON_DB, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS check_log (
+            id INTEGER PRIMARY KEY,
+            ts TEXT NOT NULL,
+            vendor TEXT NOT NULL,
+            status TEXT NOT NULL,
+            message TEXT,
+            response_ms INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS alert_log (
+            id INTEGER PRIMARY KEY,
+            ts TEXT NOT NULL,
+            vendor TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            message TEXT,
+            deep_link TEXT
+        );
+        CREATE TABLE IF NOT EXISTS action_log (
+            id INTEGER PRIMARY KEY,
+            ts TEXT NOT NULL,
+            action TEXT NOT NULL,
+            result TEXT NOT NULL,
+            detail TEXT
+        );
+    """)
+    conn.close()
+
+
+def log_check(vendor, status, message, response_ms):
+    try:
+        conn = sqlite3.connect(HOUSTON_DB, timeout=30)
+        conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute(
+            "INSERT INTO check_log (ts, vendor, status, message, response_ms) VALUES (?, ?, ?, ?, ?)",
+            (datetime.now(timezone.utc).isoformat(), vendor, status, message, response_ms)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[HOUSTON] log_check failed: {e}", file=sys.stderr)
+
+
+def log_alert(vendor, event_type, message, deep_link=None):
+    try:
+        conn = sqlite3.connect(HOUSTON_DB, timeout=30)
+        conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute(
+            "INSERT INTO alert_log (ts, vendor, event_type, message, deep_link) VALUES (?, ?, ?, ?, ?)",
+            (datetime.now(timezone.utc).isoformat(), vendor, event_type, message, deep_link)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[HOUSTON] log_alert failed: {e}", file=sys.stderr)
+
+
+def log_action(action, result, detail=None):
+    try:
+        conn = sqlite3.connect(HOUSTON_DB, timeout=30)
+        conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute(
+            "INSERT INTO action_log (ts, action, result, detail) VALUES (?, ?, ?, ?)",
+            (datetime.now(timezone.utc).isoformat(), action, result, detail)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[HOUSTON] log_action failed: {e}", file=sys.stderr)
+
 
 # --- Helpers ---
 
@@ -48,36 +127,25 @@ def ensure_aether():
         req = urllib.request.Request(f"{AETHER_URL}/api/houston-alert", headers={"User-Agent": UA})
         urllib.request.urlopen(req, timeout=3)
         return True
-    except Exception:
+    except Exception as e:
+        log_action("ensure_aether", "failure", str(e))
         return False
-
-
-def open_safari():
-    """Open Safari on iMac to Aether."""
-    try:
-        subprocess.run([
-            "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=3",
-            "-i", "/Users/houston/.ssh/id_houston",
-            "d.patnaik@192.168.0.153",
-            'open -a Safari http://192.168.0.186:51730'
-        ], timeout=10, capture_output=True)
-    except Exception:
-        pass
 
 
 def fire_alert(vendor, message, deep_link=None, alert_type="incident"):
     """Post alert to Aether — server handles watchtower huddle lifecycle."""
+    log_alert(vendor, alert_type, message, deep_link)
+
     if not ensure_aether():
         return
-
-    open_safari()
 
     data = json.dumps({"vendor": vendor, "message": message, "deep_link": deep_link or "", "type": alert_type}).encode()
     req = urllib.request.Request(ALERT_URL, data=data, headers={"Content-Type": "application/json", "User-Agent": UA}, method="POST")
     try:
         urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass
+        log_action("fire_alert", "success", f"{vendor}: {message}")
+    except Exception as e:
+        log_action("fire_alert", "failure", f"{vendor}: {e}")
 
 
 # --- Vendor checks ---
@@ -202,6 +270,8 @@ def check_prague_supabase():
 # --- Main ---
 
 def main():
+    init_db()
+
     state = load_state()
     checks = [
         ("vercel", check_vercel),
@@ -214,6 +284,7 @@ def main():
     ]
 
     for vendor, check_fn in checks:
+        t0 = time.time()
         try:
             result = check_fn()
             status = result[0]
@@ -223,9 +294,12 @@ def main():
             status = "unhealthy"
             message = f"check failed: {e}"
             deep_link = None
+        response_ms = int((time.time() - t0) * 1000)
 
         if status == "skip":
             continue
+
+        log_check(vendor, status, message, response_ms)
 
         prev_status = state.get(vendor, "healthy")
 
@@ -248,8 +322,9 @@ def main():
             method="POST"
         )
         urllib.request.urlopen(hb_req, timeout=5)
-    except Exception:
-        pass
+        log_action("heartbeat", "success")
+    except Exception as e:
+        log_action("heartbeat", "failure", str(e))
 
 
 if __name__ == "__main__":
