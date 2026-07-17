@@ -118,7 +118,7 @@ launch_tab() {
 get_tab_colors() {
     local name="$1"
     case "$name" in
-        rio|ananya|claire|felix)
+        rio|ananya|claire|felix|jake)
             echo "#8B0000 #5C0000" ;;
         juno)
             echo "#2E7D32 #1B5E20" ;;

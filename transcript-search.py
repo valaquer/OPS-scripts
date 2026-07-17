@@ -200,6 +200,11 @@ def main():
             print("Could not determine teammate from cwd. Use --teammate.", file=sys.stderr)
             sys.exit(1)
 
+    caller = teammate_from_cwd() or ""
+    if teammate == "burt" and caller != "burt":
+        print("Access to Burt's transcripts is restricted.", file=sys.stderr)
+        sys.exit(1)
+
     query_lower = args.query.lower()
     results = []
 

@@ -91,5 +91,10 @@ if [[ "$HARNESS" == *"OpenCode"* ]]; then
     [ -n "$MODEL_API_ID" ] && MODEL_FLAG="-m $model_prefix/$MODEL_API_ID"
     exec $OPENCODE $MODEL_FLAG --prompt "$WAKEUP"
 else
-    exec $CLAUDE --dangerously-skip-permissions "$WAKEUP"
+    # CSV model_api_id, when non-empty, overrides settings.json (e.g. Fable → claude-fable-5)
+    if [ -n "$MODEL_API_ID" ]; then
+        exec $CLAUDE --dangerously-skip-permissions --model "$MODEL_API_ID" "$WAKEUP"
+    else
+        exec $CLAUDE --dangerously-skip-permissions "$WAKEUP"
+    fi
 fi

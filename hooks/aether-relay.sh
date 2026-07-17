@@ -12,7 +12,6 @@ GLOBAL_FLAG="/Users/deepak-macmini/honeybloom/library/aether/livemirror-global"
 if [[ -n "${OPENCODE_HOOK_TYPE:-}" ]]; then
     TEAMMATE=$(basename "$PWD")
     TOOL_NAME="${OPENCODE_TOOL_NAME:-}"
-    [[ "$TOOL_NAME" == *"honeybloom-aether"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
     TOOL_INPUT="${OPENCODE_TOOL_INPUT:-}"
     [[ -z "$TOOL_INPUT" ]] && TOOL_INPUT='{}'
     TOOL_OUTPUT="${OPENCODE_TOOL_OUTPUT:-}"
@@ -31,8 +30,7 @@ else
     TEAMMATE=$(echo "$CWD" | sed -n 's|.*/honeybloom/\([^/]*\).*|\1|p')
     [[ -z "$TEAMMATE" ]] && TEAMMATE=$(basename "$CWD")
     TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-    # Skip Honeybloom MCP tools + ToolSearch (allow external MCP like Playwright, Reddit)
-    [[ "$TOOL_NAME" == *"honeybloom-aether"* || "$TOOL_NAME" == *"honeybloom-huddle"* || "$TOOL_NAME" == "ToolSearch" ]] && exit 0
+    # All tool calls flow to DB — no filtering. UI layer handles display curation.
     TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}' 2>/dev/null)
     TOOL_OUTPUT=$(echo "$INPUT" | jq -r '
       .tool_response // empty |

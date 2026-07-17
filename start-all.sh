@@ -35,8 +35,9 @@ start_huddle() {
         > /dev/null 2>&1 &
 }
 
-# --- Batch 1: TBD, Finance, Credentials, UI/UX, Analyst ---
+# --- Batch 1: Strategy, Finance, Credentials, UI/UX, Analyst ---
 open_tab gunnar
+open_tab fable
 open_tab felix
 open_tab jake
 open_tab burt
