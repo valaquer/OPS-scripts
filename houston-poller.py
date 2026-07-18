@@ -299,6 +299,21 @@ def main():
         if status == "skip":
             continue
 
+        # Supabase retry-before-alert: one 5s retry on any unhealthy outcome
+        if vendor == "supabase" and status == "unhealthy":
+            time.sleep(5)
+            try:
+                retry_result = check_fn()
+                retry_status = retry_result[0]
+            except Exception:
+                retry_status = "unhealthy"
+            if retry_status == "healthy":
+                log_check(vendor, "recovered-on-retry", f"transient: {message}", response_ms)
+                status = "healthy"
+                message = "recovered on retry"
+                state[vendor] = status
+                continue
+
         log_check(vendor, status, message, response_ms)
 
         prev_status = state.get(vendor, "healthy")
