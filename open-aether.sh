@@ -15,8 +15,8 @@ if curl -s -o /dev/null --max-time 3 "$AETHER_URL" 2>/dev/null; then
     exit 0
 fi
 
-# Kill any stale process on Mini
-$SSH_CMD "pkill -f 'vite.*51730' 2>/dev/null; pkill -f 'node.*aether' 2>/dev/null; true"
+# Kill any stale process on Mini (vite + mongod lock)
+$SSH_CMD "pkill -f 'vite.*aether' 2>/dev/null; pkill -f 'node.*aether' 2>/dev/null; pkill -f 'mongod.*aether-app' 2>/dev/null; rm -f /Users/deepak-macmini/honeybloom/library/aether-app/db/mongod.lock; true"
 sleep 1
 
 # Start Aether on Mini with full PATH
