@@ -9,12 +9,8 @@ MINI_IP="192.168.0.186"
 AETHER_URL="http://${MINI_IP}:51730"
 SSH_CMD="ssh -T -o BatchMode=yes -i /Users/d.patnaik/.ssh/id_hanover -o StrictHostKeyChecking=no -o ConnectTimeout=3 deepak-macmini@${MINI_IP}"
 
-# Always kill and restart (no shortcut — clean slate every time)
-$SSH_CMD "pkill -f 'vite.*aether' 2>/dev/null; pkill -f 'node.*aether' 2>/dev/null; pkill -f 'mongod.*aether-app' 2>/dev/null; rm -f /Users/deepak-macmini/honeybloom/library/aether-app/db/mongod.lock; true"
-sleep 1
-
-# Start Aether on Mini with full PATH
-$SSH_CMD "export PATH=/opt/homebrew/bin:/usr/local/bin:\$PATH; cd /Users/deepak-macmini/honeybloom/library/aether-app && nohup npm run dev > /tmp/aether.log 2>&1 &"
+# Restart Aether via launchd (kill + auto-revive via KeepAlive)
+$SSH_CMD "sudo launchctl kickstart -k system/com.honeybloom.aether; rm -f /Users/deepak-macmini/honeybloom/library/aether-app/db/mongod.lock; true"
 
 # Wait for it to come up (up to 30s)
 WAIT=0
