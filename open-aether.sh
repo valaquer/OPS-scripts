@@ -9,13 +9,7 @@ MINI_IP="192.168.0.186"
 AETHER_URL="http://${MINI_IP}:51730"
 SSH_CMD="ssh -T -o BatchMode=yes -i /Users/d.patnaik/.ssh/id_hanover -o StrictHostKeyChecking=no -o ConnectTimeout=3 deepak-macmini@${MINI_IP}"
 
-# Check if Aether is already running
-if curl -s -o /dev/null --max-time 3 "$AETHER_URL" 2>/dev/null; then
-    open -a Safari "$AETHER_URL"
-    exit 0
-fi
-
-# Kill any stale process on Mini (vite + mongod lock)
+# Always kill and restart (no shortcut — clean slate every time)
 $SSH_CMD "pkill -f 'vite.*aether' 2>/dev/null; pkill -f 'node.*aether' 2>/dev/null; pkill -f 'mongod.*aether-app' 2>/dev/null; rm -f /Users/deepak-macmini/honeybloom/library/aether-app/db/mongod.lock; true"
 sleep 1
 
