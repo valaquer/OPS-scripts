@@ -307,12 +307,15 @@ def main():
                 retry_status = retry_result[0]
             except Exception:
                 retry_status = "unhealthy"
-            if retry_status == "healthy":
+            if retry_status == "healthy" and state.get(vendor, "healthy") == "healthy":
                 log_check(vendor, "recovered-on-retry", f"transient: {message}", response_ms)
                 status = "healthy"
                 message = "recovered on retry"
                 state[vendor] = status
                 continue
+            elif retry_status == "healthy":
+                status = "healthy"
+                message = "recovered on retry"
 
         log_check(vendor, status, message, response_ms)
 
