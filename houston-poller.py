@@ -13,7 +13,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 CREDS_DIR = "/Users/houston/.secrets"
 STATE_FILE = "/var/tmp/houston-poller-state.json"
@@ -236,7 +236,8 @@ def check_cloudflare():
     if not zone_id:
         return "skip", "no zone_id"
 
-    query = '{ viewer { zones(filter: {zoneTag: "%s"}) { httpRequests1dGroups(limit: 1, filter: {date_gt: "2025-01-01"}) { sum { requests } } } } }' % zone_id
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    query = '{ viewer { zones(filter: {zoneTag: "%s"}) { httpRequests1dGroups(limit: 1, filter: {date_gt: "%s"}) { sum { requests } } } } }' % (zone_id, since)
     data = json.dumps({"query": query}).encode()
     req = urllib.request.Request("https://api.cloudflare.com/client/v4/graphql", data=data, headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": UA}, method="POST")
     resp = urllib.request.urlopen(req, timeout=10)
