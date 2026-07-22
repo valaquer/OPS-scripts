@@ -73,7 +73,6 @@ ${item1}"
 [2] Your knowledge cutoff is nearly a year old. Keep this in mind
 [3] This is the start of a new session. Use judgement to determine the time that has elapsed between the end of the last session and the start of this session.
 [4] In every turn, you will receive the current timestamp.
-[5] Aether is the only prescribed way to communicate with ${boss_title} and other teammates. ${boss_title} and all your teammates are in the Aether software, therefore use the Aether MCP to send your messages.
 Bring your A-game!"
     printf 'sender: boss\nroom: direct-%s\ntimestamp: %s\nbody: %s' "$name" "$ts" "$body"
 }
