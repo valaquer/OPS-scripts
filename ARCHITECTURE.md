@@ -1,6 +1,6 @@
 # OPS-scripts — Architecture
 
-Last updated: 2026-06-13
+Last updated: 2026-07-21
 
 ---
 
@@ -9,8 +9,8 @@ Last updated: 2026-06-13
 ```
 library/scripts/                          # Repo root (valaquer/OPS-scripts)
 ├── hooks/                              # Shell/Python hooks for Claude Code + OpenCode
-│   ├── facade-relay.sh                 # ACTIVE — PostToolUse live mirror relay
-│   ├── inject-timestamp.sh            # ACTIVE — UserPromptSubmit per-turn directive
+│   ├── aether-relay.sh                 # ACTIVE — PostToolUse live mirror relay
+│   ├── inject-timestamp.sh            # ACTIVE — UserPromptSubmit per-turn timestamp
 │   ├── block-subagents.py             # ACTIVE — PreToolUse Task tool block
 │   ├── protect-outbox.py              # ACTIVE — PreToolUse outbox protection
 │   ├── transcript-protection-hook.py  # ACTIVE — PreToolUse transcript protection
@@ -22,7 +22,7 @@ library/scripts/                          # Repo root (valaquer/OPS-scripts)
 │   └── server.py                       # ACTIVE — Reddit MCP server (4 tools)
 ├── kitty-open-teammate.sh             # ACTIVE — Main teammate launcher (Raycast)
 ├── close-tabs.py                       # ACTIVE — Tab/process closer (group-aware)
-├── start-all.sh                        # ACTIVE — Raycast "Start" (22 tabs + 7 huddles)
+├── start-all.sh                        # ACTIVE — Raycast "Start" (26 tabs + 7 hard-coded huddles; deferred ORG gap)
 ├── mini-launch.sh                      # ACTIVE — Mini-side launcher (NFS-shared)
 ├── open-facade.sh                      # ACTIVE — Raycast "Facade"
 ├── open-workbench.sh                   # ACTIVE — Raycast "Workbench" (3 tabs)
@@ -37,8 +37,9 @@ library/scripts/                          # Repo root (valaquer/OPS-scripts)
 ├── transcript-search.py               # ACTIVE — Facade/JSONL conversation search
 ├── failover-to-v4.sh                  # ACTIVE — Emergency failover to OpenCode
 ├── failover-to-46.sh                  # ACTIVE — Emergency failover to Claude Code
-├── janus-config.csv                    # ACTIVE — Teammate-model matrix (canonical)
-├── honeybloom-succinct-language.md     # ACTIVE — Per-turn directive source
+├── test-janus-lifecycle.sh             # ACTIVE — Launcher/failover lifecycle fixtures
+├── test_close_tabs.py                  # ACTIVE — Group/close unit tests
+├── test_codex_process_cleanup.py       # ACTIVE — Disposable Codex tree teardown test
 ├── espanso-base.yml                    # LEGACY — Text expansion config
 ├── bw-get.sh                           # LEGACY — Bitwarden retrieval
 ├── ig-reel-dl.sh                       # ACTIVE — Instagram reel download
@@ -63,8 +64,8 @@ Runtime artifacts (not tracked):
 
 ```
 kitty-open-teammate.sh
-  ├── reads: janus-config.csv (harness, model, machine)
-  ├── reads: ORG.md (Groups section — DUO/TRIO/SINGLE)
+  ├── reads: wiki/project-runbooks/runbook-janus-coding/janus-config.csv (harness, model, machine)
+  ├── reads: ORG.md (`## Groups` rows with `(host: name)`)
   ├── discovers: Kitty socket (/tmp/honeybloom-kitty-*.sock)
   ├── calls: mini-launch.sh (via SSH for machine=mini)
   ├── calls: Facade /api/rooms/activate
@@ -76,27 +77,41 @@ mini-launch.sh (runs on Mac Mini via SSH)
   ├── reads: NFS .tmp/ (wakeup prompt + password files)
   ├── calls: security unlock-keychain (Mini Keychain)
   ├── exports: FACADE_URL (LAN IP for hooks)
-  └── exec: claude or opencode binary
+  └── exec: claude, opencode, or codex binary selected by Janus
 
 close-tabs.py
-  ├── reads: ORG.md (Groups section)
-  ├── reads: janus-config.csv (machine column)
+  ├── validates: the complete ORG.md roster and `## Groups` membership/host contract
+  ├── reads: canonical Janus CSV (machine column)
   ├── discovers: Kitty socket
-  ├── calls: SSH to Mini (pgrep + kill for mini tabs)
+  ├── calls: SSH to Mini (allowlisted, birth-fingerprinted Codex/Claude tree teardown)
   ├── calls: safe.sh unmount (if teammate has a safe)
   └── calls: Facade /api/rooms/deactivate
 
 start-all.sh
-  ├── calls: kitty-open-teammate.sh --solo (22 times, parallel)
-  └── calls: Facade /api/huddle (7 huddles, parallel)
+  ├── calls: kitty-open-teammate.sh --solo (26 times, parallel)
+  └── calls: Facade /api/huddle (7 hard-coded huddles, parallel)
 ```
+
+The tracked `library/scripts/kitty-open-teammate.sh` is the source, but Raycast
+and Aether execute `/Users/d.patnaik/raycast-scripts/kitty-open-teammate.sh` on
+the iMac. A launcher change is not deployed until the active iMac file has been
+snapshotted, a syntax-checked replacement has been installed atomically, and its
+hash has been verified against the tracked source. The active copy must also be
+checked against canonical `ORG.md` before lifecycle acceptance.
+
+`start-all.sh` is not fully compatible with the current ORG group contract: canonical
+`ORG.md` defines eight multi-member groups, but Start-All bypasses the group-aware
+launcher with `--solo` and starts only seven hard-coded huddles, omitting the
+Gunnar/Fable group. This is a known deferred consumer gap. Controlled org rollouts
+must use `kitty-open-teammate.sh` without `--solo` so its validated `## Groups`
+parser governs tab and huddle creation.
 
 ### 2. Hook Cluster
 
 See **Hook Registration** section below for full mapping.
 
 ```
-facade-relay.sh (PostToolUse)
+aether-relay.sh (PostToolUse)
   ├── reads: livemirror-global flag file
   ├── reads: Facade /api/active-rooms (room resolution)
   ├── applies: CRED_REGEX credential filter (FP-12)
@@ -104,9 +119,7 @@ facade-relay.sh (PostToolUse)
   └── POSTs: Facade /api/tool-activity
 
 inject-timestamp.sh (UserPromptSubmit)
-  ├── reads: honeybloom-succinct-language.md (canonical directive)
-  ├── reads: Facade /api/rooms/active-room (active rooms)
-  └── outputs: JSON hookSpecificOutput (timestamp + directive)
+  └── outputs: JSON hookSpecificOutput (timestamp only)
 
 block-subagents.py (PreToolUse)
   └── blocks: Task tool (dual-protocol: stdout "deny" + exit 2)
@@ -152,19 +165,22 @@ provision-workbench-app.sh → copies template, replaces placeholders, creates s
 
 ```
 failover-to-v4.sh
-  ├── reads: ORG.md roster (excludes natalie as safety net)
-  ├── rewrites: janus-config.csv (atomic via mktemp+mv)
-  ├── backs up: janus-config.csv to .failover-backup/
+  ├── validates: ORG roster/groups and exact nine-column Janus identity set before mutation
+  ├── preserves: legacy Natalie row unchanged pending Boss's failover-policy decision
+  ├── rewrites: canonical wiki Janus CSV (atomic via mktemp+mv)
+  ├── backs up: canonical Janus CSV to .failover-backup/
   ├── strips: hooks from opencode.json files (prevents Medusa + shell duplication)
   ├── kills: all Kitty tabs
   └── relaunches: via kitty-open-teammate.sh (group-aware)
 
-failover-to-46.sh (reverse of above)
+failover-to-46.sh (alternate emergency target)
   ├── restores: hooks from .failover-backup/hooks/
-  ├── rewrites: janus-config.csv
+  ├── validates and rewrites: canonical nine-column Janus CSV; legacy Natalie row remains unchanged
   ├── kills: all Kitty tabs
   └── relaunches: via kitty-open-teammate.sh
 ```
+
+The 4.6 and v4 scripts are alternate emergency targets. Neither restores today's Codex/Sol baseline; automating that restoration is deferred to separately gated work.
 
 ### 6. MCP Server Cluster
 
@@ -186,8 +202,8 @@ mcp-reddit/server.py
 | PreToolUse | transcript-protection-hook.py | Bash | 5s | Claude Code only |
 | PreToolUse | protect-outbox.py | Bash | 5s | Claude Code only |
 | PreToolUse | block-subagents.py | Task | 5s | Both (dual-protocol) |
-| UserPromptSubmit | inject-timestamp.sh | — | 5s | Claude Code only |
-| PostToolUse | facade-relay.sh | — | 5s | Claude Code only |
+| UserPromptSubmit | inject-timestamp.sh | — | 5s | Claude Code + Codex |
+| PostToolUse | aether-relay.sh | — | 5s | Claude Code only |
 | SessionStart | session-start-time.sh | — | 5s | Claude Code only |
 | ConfigChange | log-config-change.sh | * | 5s | Claude Code only |
 
@@ -197,10 +213,10 @@ Additionally, `statusline-huddles.sh` is called from the `statusLine` config blo
 
 Medusa handles 3 functions natively via OpenCode's plugin system:
 - `tool.execute.before` — Task tool block + transcript protection (replaces block-subagents.py + transcript-protection-hook.py)
-- `tool.execute.after` — Facade relay with summaries (replaces facade-relay.sh)
-- `experimental.chat.system.transform` — Timestamp + succinct directive injection (replaces inject-timestamp.sh)
+- `tool.execute.after` — Facade relay with summaries (replaces aether-relay.sh)
+- `experimental.chat.system.transform` — Timestamp injection + pending Aether message delivery (replaces inject-timestamp.sh)
 
-**Pattern 4 warning:** Changes to facade-relay.sh, inject-timestamp.sh, or block-subagents.py may require parallel changes in Medusa (library/medusa/medusa.ts, valaquer/medusa repo). Always check both.
+**Pattern 4 warning:** Changes to aether-relay.sh, inject-timestamp.sh, or block-subagents.py may require parallel changes in Medusa (library/medusa/medusa.ts, valaquer/medusa repo). Always check both.
 
 ---
 
@@ -211,20 +227,16 @@ Medusa handles 3 functions natively via OpenCode's plugin system:
 | Source | Read By | Purpose |
 |--------|---------|---------|
 | ORG.md (`library/ORG.md`) | kitty-open-teammate.sh, close-tabs.py, failover scripts, reminder-agent.sh | Roster + Groups SSoT |
-| janus-config.csv (canonical in this repo) | kitty-open-teammate.sh, close-tabs.py, failover scripts | Harness, model, machine routing |
-| Facade API (localhost:51730 or LAN IP) | facade-relay.sh, inject-timestamp.sh, reminder-agent.sh, kitty-open-teammate.sh, close-tabs.py | Room resolution, tool activity, pulse, activate/deactivate |
+| `wiki/project-runbooks/runbook-janus-coding/janus-config.csv` | kitty-open-teammate.sh, close-tabs.py, failover scripts, Aether | Harness, model, machine routing |
+| Facade API (localhost:51730 or LAN IP) | aether-relay.sh, reminder-agent.sh, kitty-open-teammate.sh, close-tabs.py | Room resolution, tool activity, pulse, activate/deactivate |
 | macOS Keychain | kitty-open-teammate.sh, mini-launch.sh, vault.py, safe.sh | Passwords and encryption keys |
 | Kitty socket (/tmp/honeybloom-kitty-*.sock) | kitty-open-teammate.sh, close-tabs.py, failover scripts, statusline-huddles.sh | Tab discovery and management |
-| livemirror-global flag (`library/facade/livemirror-global`) | facade-relay.sh | Live mirror on/off |
-| honeybloom-succinct-language.md (`library/output-styles/`) | inject-timestamp.sh | Per-turn directive content |
+| livemirror-global flag (`library/aether/livemirror-global`) | aether-relay.sh | Live mirror on/off |
 | REMINDERS.md (per teammate dir) | reminder-agent.sh | Scheduled reminders |
 
-### Symlinks
+### Canonical configuration
 
-| Symlink | Target (canonical) |
-|---------|--------------------|
-| `rio/janus-config.csv` | `library/scripts/janus-config.csv` |
-| `library/skills/gestalt-layer-3-janus/janus-config.csv` | `library/scripts/janus-config.csv` |
+Janus has one tracked source of truth: `library/wiki/project-runbooks/runbook-janus-coding/janus-config.csv`. Lifecycle consumers read it directly; the deleted legacy `rio/` and gestalt CSV links are not part of the runtime path.
 
 ---
 
@@ -236,11 +248,11 @@ Medusa handles 3 functions natively via OpenCode's plugin system:
 |-------------------|-----------------------|---------------------------|
 | kitty-open-teammate.sh | Facade /api/rooms/activate, /api/huddle | Facade (teammate lifecycle), Hanover (SSH routing) |
 | close-tabs.py | Facade /api/rooms/deactivate | Facade (deactivation), Hanover (Mini SSH close) |
-| facade-relay.sh | Facade /api/tool-activity, /api/active-rooms | Facade (live mirror), Medusa (parallel impl) |
-| inject-timestamp.sh | Facade /api/rooms/active-room | Facade (room context), Medusa (parallel impl) |
+| aether-relay.sh | Facade /api/tool-activity, /api/active-rooms | Facade (live mirror), Medusa (parallel impl) |
+| inject-timestamp.sh | system clock, jq | Medusa (parallel timestamp implementation) |
 | mini-launch.sh | NFS mount, Keychain | Hanover (Mini teammate spawning) |
 | failover-to-v4.sh / failover-to-46.sh | OpenCode binary, Medusa plugin | Janus (model migration) |
-| janus-config.csv | — | Janus L3, kitty-open-teammate.sh, close-tabs.py, failover scripts |
+| `wiki/project-runbooks/runbook-janus-coding/janus-config.csv` | — | Janus L3, Aether, kitty-open-teammate.sh, close-tabs.py, failover scripts |
 | reminder-agent.sh | Facade /api/pulse, ORG.md | Facade (reminder system) |
 | mcp-reddit/server.py | old.reddit.com | ~/.claude.json MCP registration |
 | vault.py | SQLCipher binary, Keychain | Felix/Katja vaults |
@@ -254,5 +266,5 @@ Medusa handles 3 functions natively via OpenCode's plugin system:
 | Issue | Severity | Notes |
 |-------|----------|-------|
 | 6 LEGACY scripts tracked but unused | Low | espanso-base.yml, bw-get.sh, calendar-wake.sh, clean-memory-file-cruft.sh, meeting-status.sh, skills-to-pdf.sh. Candidates for cleanup. |
-| No automated tests | Medium | All verification is manual via B13 (Boss visual). |
-| Credential filter regex is best-effort | Medium | CRED_REGEX in facade-relay.sh catches known patterns but novel credential formats may leak. FP-12 defense-in-depth. |
+| Live lifecycle acceptance still needs B13 | Medium | Automated launcher/failover, close, inbox-routing, and disposable Codex-tree tests run before the final Boss-designated live close/relaunch check. |
+| Credential filter regex is best-effort | Medium | CRED_REGEX in aether-relay.sh catches known patterns but novel credential formats may leak. FP-12 defense-in-depth. |

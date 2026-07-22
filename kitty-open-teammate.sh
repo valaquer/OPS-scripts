@@ -64,31 +64,42 @@ cache_org_md() {
 
 get_group_info() {
     local input="$1"
-    if ! grep -qi "^Teammate: ${input}$" "$ORG_CACHE" 2>/dev/null; then
-        echo ""
-        return
-    fi
-    local group_line
-    group_line="$(grep -i "^Group:.*\b${input}\b" "$ORG_CACHE" 2>/dev/null | head -1)"
-    if [ -z "$group_line" ]; then
-        echo "SINGLE $input"
-        return
-    fi
-    local host=""
-    if echo "$group_line" | grep -q "(host:"; then
-        host="$(echo "$group_line" | sed 's/.*host: *\([a-z]*\).*/\1/')"
-    fi
-    local members_raw
-    members_raw="$(echo "$group_line" | sed 's/^Group: *//; s/ *(host:.*//')"
-    local members
-    members="$(echo "$members_raw" | tr ',' ' ' | tr -s ' ' | tr '[:upper:]' '[:lower:]' | xargs)"
-    local count
-    count="$(echo "$members" | wc -w | tr -d ' ')"
-    if [ "$count" -ge 3 ]; then
-        echo "TRIO $host $members"
-    else
-        echo "$members"
-    fi
+    /usr/bin/python3 - "$ORG_CACHE" "$input" <<'PY'
+import re, sys
+
+path, requested = sys.argv[1], sys.argv[2].lower()
+lines = open(path).read().splitlines()
+roster = [m.group(1).lower() for line in lines if (m := re.fullmatch(r"Teammate:\s*([a-z0-9-]+)", line.strip(), re.I))]
+if not roster or len(roster) != len(set(roster)):
+    raise SystemExit("Invalid ORG roster")
+groups, in_groups = [], False
+for raw in lines:
+    line = raw.strip()
+    if line == "## Groups":
+        in_groups = True
+        continue
+    if in_groups and line.startswith("## "):
+        break
+    if not in_groups or not line or "(host:" not in line.lower():
+        continue
+    match = re.fullmatch(r"(.+?)\s*\(host:\s*([a-z0-9-]+)\)", line, re.I)
+    if not match:
+        raise SystemExit(f"Malformed ORG group: {line}")
+    members = [item.strip().lower() for item in match.group(1).split(",") if item.strip()]
+    host = match.group(2).lower()
+    if not members or len(members) != len(set(members)) or host not in members:
+        raise SystemExit(f"Invalid ORG group: {line}")
+    groups.append((host, members))
+assigned = [member for _, members in groups for member in members]
+if set(assigned) != set(roster) or len(assigned) != len(set(assigned)):
+    raise SystemExit("ORG groups do not cover the unique roster")
+if requested not in roster:
+    raise SystemExit(f"Unknown teammate: {requested}")
+for host, members in groups:
+    if requested in members:
+        print("GROUP", host, *members)
+        break
+PY
 }
 
 # --- Launch Tab ---
@@ -140,7 +151,48 @@ apply_tab_color() {
         active_bg="$active_bg" inactive_bg="$inactive_bg" 2>/dev/null
 }
 
+should_start_huddle() {
+    local member_count="$1" launched_count="$2"
+    [ "$member_count" -gt 1 ] && [ "$launched_count" -gt 0 ]
+}
+
+start_group_huddle() {
+    local host="$1" members="$2" participants_json
+    participants_json="$(echo "$members" | awk '{for(i=1;i<=NF;i++) printf "\"%s\"%s", $i, (i<NF?",":"")}')"
+    curl -s -o /dev/null "${AETHER_URL}/api/huddle" \
+        -X POST -H "Content-Type: application/json" \
+        -d "{\"action\":\"start\",\"host\":\"$host\",\"participants\":[$participants_json]}" &
+}
+
+launch_solo() {
+    local socket="$1" name="$2" existing="$3"
+    if ! echo "$existing" | grep -qx "$name"; then
+        launch_tab "$socket" "$name" "$name" "no" ""
+        apply_tab_color "$socket" "$name"
+    fi
+}
+
+launch_group() {
+    local socket="$1" host="$2" members="$3" existing="$4"
+    local previous="" launched_count=0 name needs_group
+    for name in $members; do
+        if ! echo "$existing" | grep -qx "$name"; then
+            needs_group="no"
+            [ -z "$previous" ] && needs_group="yes"
+            launch_tab "$socket" "$name" "$name" "$needs_group" "$previous"
+            apply_tab_color "$socket" "$name"
+            launched_count=$((launched_count + 1))
+        fi
+        previous="$name"
+    done
+    if should_start_huddle "$(echo "$members" | wc -w | tr -d ' ')" "$launched_count"; then
+        start_group_huddle "$host" "$members"
+    fi
+}
+
 # --- Main ---
+
+main() {
 
 SOLO=false
 if [ "$1" = "--solo" ]; then
@@ -197,62 +249,17 @@ EXISTING="$(get_existing_teammates "$SOCKET")"
 
 if $SOLO; then
     # Solo mode — open only the named teammate
-    if ! echo "$EXISTING" | grep -qx "$INPUT"; then
-        launch_tab "$SOCKET" "$INPUT" "$INPUT" "no" ""
-        apply_tab_color "$SOCKET" "$INPUT"
-    fi
+    launch_solo "$SOCKET" "$INPUT" "$EXISTING"
 else
     MODE="$(echo "$PAIR_INFO" | awk '{print $1}')"
 
-    if [ "$MODE" = "SINGLE" ]; then
-        NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
-        if ! echo "$EXISTING" | grep -qx "$NAME"; then
-            launch_tab "$SOCKET" "$NAME" "$NAME" "no" ""
-            apply_tab_color "$SOCKET" "$NAME"
-        fi
-    elif [ "$MODE" = "TRIO" ]; then
+    if [ "$MODE" = "GROUP" ]; then
         HOST="$(echo "$PAIR_INFO" | awk '{print $2}')"
         MEMBERS="$(echo "$PAIR_INFO" | cut -d' ' -f3-)"
-        PREV=""
-        for NAME in $MEMBERS; do
-            if ! echo "$EXISTING" | grep -qx "$NAME"; then
-                NEEDS_GROUP="no"
-                [ -z "$PREV" ] && NEEDS_GROUP="yes"
-                launch_tab "$SOCKET" "$NAME" "$NAME" "$NEEDS_GROUP" "$PREV"
-                apply_tab_color "$SOCKET" "$NAME"
-            fi
-            PREV="$NAME"
-        done
-        # Auto-start huddle
-        PARTICIPANTS_JSON="$(echo "$MEMBERS" | awk '{for(i=1;i<=NF;i++) printf "\"%s\"%s", $i, (i<NF?",":"")}')"
-        curl -s -o /dev/null "${AETHER_URL}/api/huddle" \
-            -X POST -H "Content-Type: application/json" \
-            -d "{\"action\":\"start\",\"host\":\"$HOST\",\"participants\":[$PARTICIPANTS_JSON]}" &
+        launch_group "$SOCKET" "$HOST" "$MEMBERS" "$EXISTING"
     else
-        # Paired teammates (duo)
-        LEFT_NAME="$(echo "$PAIR_INFO" | awk '{print $1}')"
-        RIGHT_NAME="$(echo "$PAIR_INFO" | awk '{print $2}')"
-        LEFT_EXISTS=false
-        RIGHT_EXISTS=false
-        echo "$EXISTING" | grep -qx "$LEFT_NAME" && LEFT_EXISTS=true
-        echo "$EXISTING" | grep -qx "$RIGHT_NAME" && RIGHT_EXISTS=true
-
-        if $LEFT_EXISTS && $RIGHT_EXISTS; then
-            :
-        elif ! $LEFT_EXISTS && ! $RIGHT_EXISTS; then
-            launch_tab "$SOCKET" "$LEFT_NAME" "$LEFT_NAME" "yes" ""
-            apply_tab_color "$SOCKET" "$LEFT_NAME"
-            launch_tab "$SOCKET" "$RIGHT_NAME" "$RIGHT_NAME" "no" "$LEFT_NAME"
-            apply_tab_color "$SOCKET" "$RIGHT_NAME"
-        else
-            if ! $LEFT_EXISTS; then
-                launch_tab "$SOCKET" "$LEFT_NAME" "$LEFT_NAME" "no" "$RIGHT_NAME"
-                apply_tab_color "$SOCKET" "$LEFT_NAME"
-            else
-                launch_tab "$SOCKET" "$RIGHT_NAME" "$RIGHT_NAME" "no" "$LEFT_NAME"
-                apply_tab_color "$SOCKET" "$RIGHT_NAME"
-            fi
-        fi
+        echo "Invalid group data for $INPUT" >&2
+        exit 1
     fi
 fi
 
@@ -282,4 +289,9 @@ for os_win in data:
     for WIN_ID in $DEFAULT_WINDOWS; do
         $KITTEN @ --to "$SOCKET" close-tab --match "id:$WIN_ID" 2>/dev/null
     done
+fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
 fi

@@ -1,0 +1,74 @@
+{
+  "description": "Honeybloom lifecycle hooks for Codex teammate sessions.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/deepak-macmini/honeybloom/library/scripts/hooks/session-start-time.sh",
+            "timeout": 5,
+            "statusMessage": "Starting Honeybloom session"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/deepak-macmini/honeybloom/library/scripts/hooks/inject-timestamp.sh",
+            "timeout": 5,
+            "statusMessage": "Loading Honeybloom context"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/deepak-macmini/honeybloom/library/scripts/hooks/transcript-protection-hook.py",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "/Users/deepak-macmini/honeybloom/library/scripts/hooks/protect-outbox.py",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "/Users/deepak-macmini/honeybloom/library/scripts/hooks/block-keychain.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "^(Agent|Workflow|TaskCreate|ScheduleWakeup|CronCreate|CronDelete|CronList)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/deepak-macmini/honeybloom/library/scripts/hooks/block-subagents.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/deepak-macmini/honeybloom/library/scripts/hooks/aether-relay.sh",
+            "timeout": 5,
+            "statusMessage": "Relaying tool activity to Aether"
+          }
+        ]
+      }
+    ]
+  }
+}

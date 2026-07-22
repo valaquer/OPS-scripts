@@ -1,22 +1,22 @@
 #!/bin/bash
-# Emergency failover: switch entire org from OpenCode (v4 combo) back to Claude Code (4.6 combo).
-# Single command, no prompts. Run after Anthropic outage is resolved.
+# Emergency failover destination: Claude Code (4.6 combo).
+# Single command, no prompts.
 
 set -euo pipefail
 
 HOMEDIR="/Users/deepak-macmini/honeybloom"
-ORG_MD="$HOMEDIR/library/ORG.md"
-JANUS_CSV_LINK="$HOMEDIR/rio/janus-config.csv"
-JANUS_CSV="$(readlink -f "$JANUS_CSV_LINK" 2>/dev/null || echo "$JANUS_CSV_LINK")"
+ORG_MD="${ORG_MD_OVERRIDE:-$HOMEDIR/library/ORG.md}"
+CANONICAL_JANUS_CSV="$HOMEDIR/library/wiki/project-runbooks/runbook-janus-coding/janus-config.csv"
+JANUS_CSV="${JANUS_CSV_OVERRIDE:-$CANONICAL_JANUS_CSV}"
 KITTEN="/opt/homebrew/bin/kitten"
 CLAUDE="/Users/deepak-macmini/.local/bin/claude"
 LAUNCH_SCRIPT="$HOMEDIR/library/scripts/kitty-open-teammate.sh"
 BACKUP_DIR="$HOMEDIR/library/scripts/.failover-backup"
 
-# Natalie excluded — stays on Claude Code as safety net for Boss
+# Legacy Natalie exception preserves her current row pending Boss's failover-policy decision.
 SKIP_TEAMMATES="natalie"
 
-# --- Read ORG.md Roster (excluding safety net) ---
+# --- Read ORG.md roster (excluding the deferred legacy exception) ---
 get_roster() {
     grep -i "^Teammate:" "$ORG_MD" | sed 's/^Teammate: *//I' | tr '[:upper:]' '[:lower:]' | grep -vwF "$SKIP_TEAMMATES"
 }
@@ -36,22 +36,70 @@ discover_socket() {
 
 # --- Get unique group representatives for launch ---
 get_launch_names() {
-    local seen_groups=""
-    while IFS= read -r name; do
-        local group_line
-        group_line="$(grep -i "^Group:.*\b${name}\b" "$ORG_MD" 2>/dev/null | head -1)" || true
-        if [ -z "$group_line" ]; then
-            echo "$name"
-        else
-            local group_key
-            group_key="$(echo "$group_line" | sed 's/^Group: *//' | tr '[:upper:]' '[:lower:]' | tr -d ' ')"
-            if [[ "$seen_groups" != *"|${group_key}|"* ]]; then
-                seen_groups="${seen_groups}|${group_key}|"
-                echo "$name"
-            fi
-        fi
-    done <<< "$(get_roster)"
+    validate_org_and_print_hosts
 }
+
+validate_org_and_print_hosts() {
+    /usr/bin/python3 - "$ORG_MD" <<'PY'
+import re, sys
+lines = open(sys.argv[1]).read().splitlines()
+roster = [m.group(1).lower() for line in lines if (m := re.fullmatch(r"Teammate:\s*([a-z0-9-]+)", line.strip(), re.I))]
+if not roster or len(roster) != len(set(roster)): raise SystemExit("invalid ORG roster")
+groups=[]; active=False
+for raw in lines:
+    line=raw.strip()
+    if line == "## Groups": active=True; continue
+    if active and line.startswith("## "): break
+    if not active or not line or "(host:" not in line.lower(): continue
+    m=re.fullmatch(r"(.+?)\s*\(host:\s*([a-z0-9-]+)\)", line, re.I)
+    if not m: raise SystemExit(f"malformed ORG group: {line}")
+    members=[x.strip().lower() for x in m.group(1).split(",") if x.strip()]; host=m.group(2).lower()
+    if not members or len(members)!=len(set(members)) or host not in members: raise SystemExit(f"invalid ORG group: {line}")
+    groups.append((host,members))
+assigned=[x for _,members in groups for x in members]
+if set(assigned)!=set(roster) or len(assigned)!=len(set(assigned)): raise SystemExit("ORG groups do not cover unique roster")
+for host,_ in groups: print(host)
+PY
+}
+
+validate_csv() {
+    local csv_path="${1:-$JANUS_CSV}"
+    /usr/bin/python3 - "$ORG_MD" "$csv_path" <<'PY'
+import csv, re, sys
+org_path, csv_path = sys.argv[1:]
+roster = [m.group(1).lower() for line in open(org_path) if (m := re.fullmatch(r"Teammate:\s*([a-z0-9-]+)\s*", line.strip(), re.I))]
+rows = list(csv.reader(open(csv_path)))
+expected = ["teammate","role","model","harness","provider","api_key","effort_level","model_api_id","machine"]
+if not rows or rows[0] != expected or any(len(row) != 9 for row in rows[1:]): raise SystemExit("invalid Janus nine-column schema")
+names = [row[0].strip().lower() for row in rows[1:]]
+if len(names) != len(set(names)) or set(names) != set(roster): raise SystemExit("Janus teammate set differs from ORG roster")
+PY
+}
+
+rewrite_csv() {
+    local csv_path="${1:?rewrite_csv requires an explicit CSV path}"
+    if [ "${HONEYBLOOM_TEST_MODE:-0}" = 1 ] && [ "$csv_path" = "$CANONICAL_JANUS_CSV" ]; then
+        echo "ABORT: test mode refuses the canonical Janus CSV." >&2
+        return 1
+    fi
+    local tmpcsv
+    tmpcsv="$(mktemp "${csv_path}.tmp.XXXXXX")"
+    head -1 "$csv_path" > "$tmpcsv"
+    while IFS=',' read -r teammate role model harness provider api_key effort_level model_api_id machine; do
+        local local_name
+        local_name="$(echo "$teammate" | tr '[:upper:]' '[:lower:]')"
+        if echo "$SKIP_TEAMMATES" | grep -qwF "$local_name"; then
+            printf '%s,%s,%s,%s,%s,%s,%s,%s,%s\n' "$teammate" "$role" "$model" "$harness" "$provider" "$api_key" "$effort_level" "$model_api_id" "$machine" >> "$tmpcsv"
+        else
+            printf '%s,%s,Opus 4.6,Claude Code,Anthropic,%s,high,,%s\n' "$teammate" "$role" "$api_key" "$machine" >> "$tmpcsv"
+        fi
+    done < <(tail -n +2 "$csv_path")
+    mv "$tmpcsv" "$csv_path"
+}
+
+main() {
+validate_org_and_print_hosts >/dev/null
+validate_csv
 
 echo "=== FAILOVER TO 4.6 COMBO ==="
 echo ""
@@ -73,18 +121,7 @@ echo "CSV backed up."
 
 # --- Rewrite CSV atomically ---
 echo "Rewriting janus-config.csv..."
-TMPCSV="$(mktemp)"
-head -1 "$JANUS_CSV" > "$TMPCSV"
-tail -n +2 "$JANUS_CSV" | while IFS=',' read -r teammate role model harness provider api_key effort_level model_api_id; do
-    local_name="$(echo "$teammate" | tr '[:upper:]' '[:lower:]')"
-    if echo "$SKIP_TEAMMATES" | grep -qwF "$local_name"; then
-        # Preserve safety net teammate's row unchanged
-        echo "${teammate},${role},${model},${harness},${provider},${api_key},${effort_level},${model_api_id}" >> "$TMPCSV"
-    else
-        echo "${teammate},${role},Opus 4.6,Claude Code,Anthropic,${api_key},high," >> "$TMPCSV"
-    fi
-done
-mv "$TMPCSV" "$JANUS_CSV"
+rewrite_csv "$JANUS_CSV"
 echo "CSV updated: all teammates (except $SKIP_TEAMMATES) -> Claude Code / Opus 4.6."
 
 # --- Restore hooks to opencode.json files ---
@@ -132,5 +169,10 @@ wait
 
 echo ""
 echo "=== FAILOVER COMPLETE ==="
-echo "All teammates now on Claude Code / Opus 4.6 (Anthropic)."
-echo "To reverse: bash $HOMEDIR/library/scripts/failover-to-v4.sh"
+echo "The other 25 teammates now use Claude Code / Opus 4.6; Natalie's row is unchanged pending Boss's failover-policy decision."
+echo "Restoration to the Codex/Sol baseline is not automated and requires separately gated work."
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
