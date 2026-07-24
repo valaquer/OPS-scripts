@@ -1,0 +1,27 @@
+teammate,role,model,harness,provider,api_key,effort_level,model_api_id,machine
+Rio,Shift-left QA (Ops),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Chica,Internal Tooling Principal,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Sierra,Product Principal,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Daksh,App Principal,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Juno,R&D Lead,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Ananya,Community Manager & Copywriter,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Andrea,UI/UX Designer & Engineer,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Claire,Curator & PM,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Felix,CFO & Legal Counsel,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Pike,R&D Principal,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Dante,Shift-left QA (Visual),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Kirby,Growth Lead & QA,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Guru,Shift-left QA (Prague),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Burt,Credential Security Officer,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Gunnar,TBD,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Natalie,Contrarian (Ops),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Ines,Contrarian (Prague),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Klara,Studio Principal,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Hana,Shift-left QA (Visual Pipeline),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Wyatt,Contrarian (Chat Engine),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Cindy,Contrarian (Visual + Chat),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Nora,Contrarian (Growth),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Jeh,Huddle Analyst,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Jukka,Contrarian (R&D),Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Jake,Finance & Legal,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini
+Fable,Strategy Consultant,Opus 4.6 [1M],Claude Code,Anthropic,,high,,mini

@@ -64,7 +64,7 @@ Runtime artifacts (not tracked):
 
 ```
 kitty-open-teammate.sh
-  ├── reads: wiki/project-runbooks/runbook-janus-coding/janus-config.csv (harness, model, machine)
+  ├── reads: janus-config.csv (harness, model, machine)
   ├── reads: ORG.md (`## Groups` rows with `(host: name)`)
   ├── discovers: Kitty socket (/tmp/honeybloom-kitty-*.sock)
   ├── calls: mini-launch.sh (via SSH for machine=mini)
@@ -227,7 +227,7 @@ Medusa handles 3 functions natively via OpenCode's plugin system:
 | Source | Read By | Purpose |
 |--------|---------|---------|
 | ORG.md (`library/ORG.md`) | kitty-open-teammate.sh, close-tabs.py, failover scripts, reminder-agent.sh | Roster + Groups SSoT |
-| `wiki/project-runbooks/runbook-janus-coding/janus-config.csv` | kitty-open-teammate.sh, close-tabs.py, failover scripts, Aether | Harness, model, machine routing |
+| `janus-config.csv` | kitty-open-teammate.sh, close-tabs.py, failover scripts, Aether | Harness, model, machine routing |
 | Facade API (localhost:51730 or LAN IP) | aether-relay.sh, reminder-agent.sh, kitty-open-teammate.sh, close-tabs.py | Room resolution, tool activity, pulse, activate/deactivate |
 | macOS Keychain | kitty-open-teammate.sh, mini-launch.sh, vault.py, safe.sh | Passwords and encryption keys |
 | Kitty socket (/tmp/honeybloom-kitty-*.sock) | kitty-open-teammate.sh, close-tabs.py, failover scripts, statusline-huddles.sh | Tab discovery and management |
@@ -236,7 +236,7 @@ Medusa handles 3 functions natively via OpenCode's plugin system:
 
 ### Canonical configuration
 
-Janus has one tracked source of truth: `library/wiki/project-runbooks/runbook-janus-coding/janus-config.csv`. Lifecycle consumers read it directly; the deleted legacy `rio/` and gestalt CSV links are not part of the runtime path.
+Janus has one tracked source of truth: `library/scripts/janus-config.csv`. Lifecycle consumers read it directly; the deleted legacy `rio/` and gestalt CSV links are not part of the runtime path.
 
 ---
 
@@ -252,7 +252,7 @@ Janus has one tracked source of truth: `library/wiki/project-runbooks/runbook-ja
 | inject-timestamp.sh | system clock, jq | Medusa (parallel timestamp implementation) |
 | mini-launch.sh | NFS mount, Keychain | Hanover (Mini teammate spawning) |
 | failover-to-v4.sh / failover-to-46.sh | OpenCode binary, Medusa plugin | Janus (model migration) |
-| `wiki/project-runbooks/runbook-janus-coding/janus-config.csv` | — | Janus L3, Aether, kitty-open-teammate.sh, close-tabs.py, failover scripts |
+| `janus-config.csv` | — | Janus L3, Aether, kitty-open-teammate.sh, close-tabs.py, failover scripts |
 | reminder-agent.sh | Facade /api/pulse, ORG.md | Facade (reminder system) |
 | mcp-reddit/server.py | old.reddit.com | ~/.claude.json MCP registration |
 | vault.py | SQLCipher binary, Keychain | Felix/Katja vaults |

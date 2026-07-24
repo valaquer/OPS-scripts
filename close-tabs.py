@@ -18,7 +18,7 @@ import re
 KITTEN = "/opt/homebrew/bin/kitten"
 
 ORG_PATH = "/Users/deepak-macmini/honeybloom/library/ORG.md"
-JANUS_CSV = "/Users/deepak-macmini/honeybloom/library/wiki/project-runbooks/runbook-janus-coding/janus-config.csv"
+JANUS_CSV = "/Users/deepak-macmini/honeybloom/library/scripts/janus-config.csv"
 SSH_KEY = "/Users/deepak-macmini/.ssh/id_hanover"
 MINI_USER = "deepak-macmini"
 MINI_HOST = "192.168.0.186"

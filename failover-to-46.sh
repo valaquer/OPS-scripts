@@ -6,7 +6,7 @@ set -euo pipefail
 
 HOMEDIR="/Users/deepak-macmini/honeybloom"
 ORG_MD="${ORG_MD_OVERRIDE:-$HOMEDIR/library/ORG.md}"
-CANONICAL_JANUS_CSV="$HOMEDIR/library/wiki/project-runbooks/runbook-janus-coding/janus-config.csv"
+CANONICAL_JANUS_CSV="$HOMEDIR/library/scripts/janus-config.csv"
 JANUS_CSV="${JANUS_CSV_OVERRIDE:-$CANONICAL_JANUS_CSV}"
 KITTEN="/opt/homebrew/bin/kitten"
 CLAUDE="/Users/deepak-macmini/.local/bin/claude"
