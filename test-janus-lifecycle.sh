@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="/Users/deepak-macmini/honeybloom/library"
 ORG="$ROOT/ORG.md"
-CSV="$ROOT/wiki/project-runbooks/runbook-janus-coding/janus-config.csv"
+CSV="$ROOT/scripts/janus-config.csv"
 LAUNCHER="$ROOT/scripts/kitty-open-teammate.sh"
 FAIL46="$ROOT/scripts/failover-to-46.sh"
 FAILV4="$ROOT/scripts/failover-to-v4.sh"
