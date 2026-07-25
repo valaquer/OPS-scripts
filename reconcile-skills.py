@@ -24,8 +24,7 @@ from pathlib import Path
 
 HONEYBLOOM = Path("/Users/deepak-macmini/honeybloom")
 SKILL_DIRS = [
-    HONEYBLOOM / "library" / "wiki" / "how-to-guides",
-    HONEYBLOOM / "library" / "wiki" / "project-runbooks",
+    HONEYBLOOM / "library" / "skills",
 ]
 ORG_MD = HONEYBLOOM / "library" / "ORG.md"
 
@@ -103,7 +102,7 @@ def expand_teammates(raw_teammates, teams, active):
 
 
 def parse_frontmatter(skill_path):
-    """Parse YAML frontmatter from SKILL.md for teammates array."""
+    """Parse legacy or metadata-nested teammates from SKILL.md frontmatter."""
     with open(skill_path, "r") as f:
         content = f.read()
 
@@ -113,6 +112,18 @@ def parse_frontmatter(skill_path):
 
     fm = fm_match.group(1)
     tm_match = re.search(r"^teammates:\s*\[([^\]]*)\]", fm, re.MULTILINE)
+    if not tm_match:
+        metadata_match = re.search(
+            r"^metadata:\s*\n(?P<body>(?:^[ \t]+.*(?:\n|$))*)",
+            fm,
+            re.MULTILINE,
+        )
+        if metadata_match:
+            tm_match = re.search(
+                r"^[ \t]+teammates:\s*\[([^\]]*)\]",
+                metadata_match.group("body"),
+                re.MULTILINE,
+            )
     if not tm_match:
         return []
 

@@ -10,7 +10,7 @@ import sys
 
 
 PROJECT_BASE = os.path.expanduser("~/.claude/projects")
-DIR_PREFIX = "-Users-d-patnaik-honeybloom-"
+DIR_PREFIX = "-Users-deepak-macmini-honeybloom-"
 AETHER_DB = "/Users/deepak-macmini/honeybloom/library/aether/aether.db"
 
 
