@@ -5,11 +5,11 @@
 set -euo pipefail
 
 HOMEDIR="/Users/deepak-macmini/honeybloom"
-ORG_MD="${ORG_MD_OVERRIDE:-$HOMEDIR/library/ORG.md}"
+ORG_MD="${ORG_MD_OVERRIDE:-$HOMEDIR/library/wiki/Organization/ORG.md}"
 CANONICAL_JANUS_CSV="$HOMEDIR/library/scripts/janus-config.csv"
 JANUS_CSV="${JANUS_CSV_OVERRIDE:-$CANONICAL_JANUS_CSV}"
 KITTEN="/opt/homebrew/bin/kitten"
-LAUNCH_SCRIPT="$HOMEDIR/library/scripts/kitty-open-teammate.sh"
+LAUNCH_SCRIPT="$HOMEDIR/library/scripts/open-team.sh"
 BACKUP_DIR="$HOMEDIR/library/scripts/.failover-backup"
 
 # Legacy Natalie exception preserves her current row pending Boss's failover-policy decision.
@@ -20,7 +20,7 @@ get_roster() {
     grep -i "^Teammate:" "$ORG_MD" | sed 's/^Teammate: *//I' | tr '[:upper:]' '[:lower:]' | grep -vwF "$SKIP_TEAMMATES"
 }
 
-# --- Socket Discovery (same as kitty-open-teammate.sh) ---
+# --- Socket Discovery (same as open-team.sh) ---
 discover_socket() {
     for path in /tmp/honeybloom-kitty-*.sock; do
         [ -S "$path" ] || continue
@@ -178,7 +178,7 @@ fi
 echo "Relaunching all teammates..."
 while IFS= read -r name; do
     echo "  Launching $name..."
-    bash "$LAUNCH_SCRIPT" "$name" &
+    bash "$LAUNCH_SCRIPT" --solo "$name" &
     sleep 1
 done <<< "$(get_launch_names)"
 
