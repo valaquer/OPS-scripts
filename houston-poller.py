@@ -330,7 +330,11 @@ def main():
 
         state[vendor] = status
 
-    save_state(state)
+    try:
+        save_state(state)
+    except Exception as e:
+        log_check("system", "state_write_error", str(e), 0)
+        print(f"[HOUSTON] save_state failed: {e}", file=sys.stderr)
 
     try:
         hb_data = json.dumps({"state": state}).encode()
