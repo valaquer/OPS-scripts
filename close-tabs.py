@@ -6,7 +6,6 @@ Single purpose: tab closing only. No ledger, no huddle cleanup.
 Usage: close-tabs.py <teammate_name>
 """
 
-import csv
 import glob as glob_mod
 import os
 import subprocess
@@ -18,10 +17,6 @@ import re
 KITTEN = "/opt/homebrew/bin/kitten"
 
 ORG_PATH = "/Users/deepak-macmini/honeybloom/library/wiki/Organization/ORG.md"
-JANUS_CSV = "/Users/deepak-macmini/honeybloom/library/scripts/janus-config.csv"
-SSH_KEY = "/Users/deepak-macmini/.ssh/id_hanover"
-MINI_USER = "deepak-macmini"
-MINI_HOST = "192.168.0.186"
 
 
 def parse_groups(org_path=None):
@@ -99,23 +94,7 @@ def close_tab(socket, teammate):
     )
 
 
-def get_machine(teammate):
-    try:
-        with open(JANUS_CSV) as f:
-            reader = csv.reader(f)
-            header = next(reader)
-            machine_idx = header.index("machine") if "machine" in header else -1
-            if machine_idx < 0:
-                return "imac"
-            for row in reader:
-                if len(row) > machine_idx and row[0].strip().lower() == teammate:
-                    return row[machine_idx].strip().lower() or "imac"
-    except Exception:
-        pass
-    return "imac"
-
-
-def build_mini_close_command(teammate):
+def build_close_command(teammate):
     if not re.fullmatch(r"[a-z0-9-]+", teammate, re.I):
         raise ValueError(f"Invalid teammate name: {teammate}")
     expected_cwd = f"/Users/deepak-macmini/honeybloom/{teammate}"
@@ -158,19 +137,18 @@ for pid in $survivors; do still_target "$pid" && remaining="$remaining $pid"; do
 [ -n "$targets" ] && echo killed || echo none"""
 
 
-def close_mini_tab(teammate):
+def kill_processes(teammate):
+    cmd = build_close_command(teammate)
     result = subprocess.run(
-        ["ssh", "-i", SSH_KEY, "-o", "ConnectTimeout=3",
-         f"{MINI_USER}@{MINI_HOST}",
-         build_mini_close_command(teammate)],
+        ["bash", "-c", cmd],
         capture_output=True, timeout=10, text=True,
     )
     if result.returncode != 0:
-        detail = result.stderr.strip() or f"remote exit {result.returncode}"
-        raise RuntimeError(f"Mini process cleanup failed for {teammate}: {detail}")
+        detail = result.stderr.strip() or f"exit {result.returncode}"
+        raise RuntimeError(f"Process cleanup failed for {teammate}: {detail}")
     status = result.stdout.strip()
     if status not in {"killed", "none"}:
-        raise RuntimeError(f"Mini process cleanup returned invalid status for {teammate}: {status!r}")
+        raise RuntimeError(f"Process cleanup returned invalid status for {teammate}: {status!r}")
     return status
 
 
@@ -219,31 +197,15 @@ def main():
     socket = discover_socket()
 
     def close_one(name):
-        machine = get_machine(name)
-        if machine == "mini":
-            cleanup_status = close_mini_tab(name)
-            if cleanup_status == "killed":
-                notify_aether(name)
-                unmount_safe(name)
-                print(f"Closed {name}'s process on Mini.")
-            elif cleanup_status == "none" and socket and is_tab_alive(socket, name):
-                close_tab(socket, name)
-                notify_aether(name)
-                unmount_safe(name)
-                print(f"Closed {name}'s tab locally (not on Mini).")
-            else:
-                print(f"No process found for {name} on Mini or locally.")
+        cleanup_status = kill_processes(name)
+        if socket and is_tab_alive(socket, name):
+            close_tab(socket, name)
+        if cleanup_status == "killed":
+            notify_aether(name)
+            unmount_safe(name)
+            print(f"Closed {name}.")
         else:
-            if not socket:
-                print(f"No Kitty socket — cannot close {name}.", file=sys.stderr)
-                return
-            if is_tab_alive(socket, name):
-                close_tab(socket, name)
-                notify_aether(name)
-                unmount_safe(name)
-                print(f"Closed {name}'s tab.")
-            else:
-                print(f"No tab open for {name}.")
+            print(f"No process found for {name}.")
 
     close_one(teammate)
 
