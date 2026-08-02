@@ -276,7 +276,7 @@ def main():
     state = load_state()
     checks = [
         ("vercel", check_vercel),
-        # ("supabase", check_supabase),  # Disabled -- houston@oovar.ai PAT invalid after project deletion
+        ("supabase", check_supabase),
         ("resend", check_resend),
         ("openrouter", check_openrouter),
         ("cloudflare", check_cloudflare),
