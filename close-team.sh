@@ -29,3 +29,20 @@ fi
 
 echo "Closing team: $LEADER"
 python3 "$SCRIPT_DIR/close-tabs.py" "$LEADER"
+
+AETHER_URL="http://localhost:51730"
+ROOM_ID=$(curl -s "$AETHER_URL/api/rooms" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for h in data.get('huddles', []):
+    if h.get('name') == '$LEADER' and h.get('active', False):
+        print(h['id'])
+        break
+" 2>/dev/null)
+
+if [ -n "$ROOM_ID" ]; then
+    curl -s -X POST "$AETHER_URL/api/archive-huddle" \
+        -H "Content-Type: application/json" \
+        -d "{\"roomId\":\"$ROOM_ID\"}" >/dev/null 2>&1
+    echo "Archived huddle: $ROOM_ID"
+fi
