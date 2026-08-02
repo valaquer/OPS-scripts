@@ -13,6 +13,8 @@ Mac Mini (deepak-macmini@192.168.0.186)
 ├── /Users/deepak-macmini/honeybloom/          # Local working tree (all teammates)
 │   ├── library/scripts/                       # OPS-scripts repo (git: valaquer/OPS-scripts)
 │   │   ├── open-team.sh                       # Canonical launcher -- solo + team modes
+│   │   ├── close-team.sh                      # Team closer -- validates leader, delegates to close-tabs.py
+│   │   ├── close-tabs.py                      # Tab/process closer -- closes all group members
 │   │   ├── start-all.sh                       # Full org boot -- all teammates + auto-huddles
 │   │   ├── mini-launch.sh                     # Per-teammate launcher (harness, wakeup, keychain)
 │   │   ├── sync-screenshots.sh                # rsync iMac→Mini screenshots
@@ -38,6 +40,7 @@ Mac Mini (deepak-macmini@192.168.0.186)
 │   ├── com.honeybloom.unlock-keychain.plist   # Keychain unlock on boot
 │   ├── com.honeybloom.vault-auto-commit.plist # Hourly vault auto-commit
 │   ├── com.honeybloom.aether-db-snapshot.plist # DB snapshot
+│   ├── com.honeybloom.cdp-tunnel.plist        # SSH tunnel to iMac Chrome CDP (KeepAlive)
 │   └── com.honeybloom.markwhen-watch.plist    # Markwhen file watcher (retired)
 └── /tmp/
     ├── honeybloom-kitty-*.sock                # Kitty socket (discovered at runtime)
@@ -53,6 +56,7 @@ iMac (d.patnaik@192.168.0.153)
 │   │   ├── start-all.sh                       # Full org boot (delegates to Mini)
 │   │   ├── leadership-team.sh                 # Leadership huddle launch
 │   │   ├── rio-team.sh, guru-team.sh, ...     # Per-team launchers
+│   │   ├── +close-team.sh                     # Team closer -- SSH to Mini's close-team.sh
 │   │   ├── scr.sh                             # Latest screenshot path → paste
 │   │   ├── pst.sh                             # Latest postal mail path → paste
 │   │   ├── drp.sh                             # Drop zone message → paste
@@ -128,6 +132,13 @@ Mini → iMac:
   Alias: ssh imac (configured in ~/.ssh/config)
   
 Used by: teammate launching, file sync, keychain unlock, Raycast delegation
+
+CDP Tunnel (Mini → iMac):
+  ssh -L 9222:localhost:9222 imac -N
+  Managed by: com.honeybloom.cdp-tunnel.plist (KeepAlive)
+  ServerAliveInterval: 60s, ExitOnForwardFailure: yes
+  Used by: playwright-cdp MCP server (all teammates)
+  Error log: /tmp/cdp-tunnel.err
 ```
 
 ### External Dependencies
@@ -139,7 +150,9 @@ janus-config.csv
 
 ORG.md
   Read by: open-team.sh (team groups for huddle creation),
-           start-all.sh (team batching)
+           start-all.sh (team batching),
+           close-team.sh (leader validation),
+           close-tabs.py (group member resolution)
 
 Kitty (/opt/homebrew/bin/kitten)
   Used by: open-team.sh (tab management), kitten.ts (message delivery),
@@ -188,6 +201,18 @@ Boss runs start-all.sh from iMac Raycast
   → All 26 teammates launch + 8 auto-huddles + leadership huddle
 ```
 
+### Gunnar Closes a Team (iMac Raycast)
+
+```
+Gunnar types leader name in +close-team Raycast command on iMac
+  → +close-team.sh on iMac
+  → ssh to Mini: close-team.sh {leader}
+  → close-team.sh validates leader against ORG.md groups section
+  → Delegates to close-tabs.py {leader}
+  → close-tabs.py resolves group members from ORG.md
+  → For each member: closes Kitty tab, kills claude process, POSTs /api/rooms/deactivate, unmounts safe
+```
+
 ### Boss Opens a Teammate (India -- Mini Raycast)
 
 ```
@@ -227,8 +252,11 @@ Touches: mini-launch.sh (harness, model, provider), open-team.sh (tab colors), k
 ### sync-screenshots.sh / sync-postal-mail.sh
 Touches: file availability for Boss→teammate handoffs. Contains hardcoded iMac IP. If IP changes or SSH key changes, sync stops silently (errors redirected to /dev/null or err log).
 
+### close-team.sh / close-tabs.py
+Touches: team closing lifecycle. close-team.sh validates leader, delegates to close-tabs.py which closes ALL group members (tabs, processes, Aether rooms, safes). Changes to close-tabs.py affect ALL callers (close-team.sh, close-the-books skill). close-tabs.py reads ORG.md for group resolution -- path must stay in sync if ORG.md moves again.
+
 ### iMac Raycast scripts (raycast-scripts/)
-Touches: Boss's primary interface for launching teammates and teams. The iMac kitty-open-teammate.sh is a thin wrapper -- changes to open-team.sh on Mini are the real blast radius. But the LAUNCH path in start-all.sh on iMac must match the iMac's script location.
+Touches: Boss's and Gunnar's interface for launching and closing teammates/teams. The iMac kitty-open-teammate.sh and +close-team.sh are thin wrappers -- changes to open-team.sh and close-team.sh on Mini are the real blast radius. But the LAUNCH path in start-all.sh on iMac must match the iMac's script location.
 
 ### SSH keys
 Touches: ALL cross-machine operations. id_hanover (iMac→Mini) used by Raycast scripts, sync agents, CDP tunnel. id_mini (Mini→iMac) used by mini-launch.sh (Keychain unlock), sync agents, screenshot/postal-mail scripts.
@@ -239,8 +267,14 @@ Touches: ALL message delivery (sendToKitty), teammate alive checks (getAliveTeam
 ### Hardcoded IPs (192.168.0.153, 192.168.0.186)
 Touches: 12+ files across both machines (full list in RUNBOOK Known Issues). DHCP reassignment breaks everything. No DHCP reservation set on router yet.
 
+### CDP tunnel (com.honeybloom.cdp-tunnel.plist)
+Touches: Playwright CDP access for all 23 teammates. Forwards localhost:9222 to iMac's Chrome debug port via SSH. Uses id_mini key and `imac` SSH alias. If this breaks, `mcp__playwright-cdp__*` tools fail for everyone (standalone `mcp__playwright__*` tools unaffected). KeepAlive ensures automatic restart.
+
+### Per-teammate .mcp.json (playwright-cdp entry)
+Touches: every teammate's MCP server list. The `playwright-cdp` entry in each teammate's `.mcp.json` connects to localhost:9222 (the tunnel endpoint). 1s timeout (`--cdp-timeout=1000`) -- fast fail when Chrome isn't running. If Chrome is off, the MCP server exits silently; tools just don't appear.
+
 ### LaunchAgents (both machines)
-Touches: file sync (screenshots, postal-mail, drop-zone), vault auto-commit, Keychain unlock, DB snapshots. Each agent runs independently. Failure is silent -- most redirect stderr to /dev/null.
+Touches: file sync (screenshots, postal-mail, drop-zone), vault auto-commit, Keychain unlock, DB snapshots, CDP tunnel. Each agent runs independently. Failure is silent -- most redirect stderr to /dev/null or /tmp/*.err.
 
 ---
 
