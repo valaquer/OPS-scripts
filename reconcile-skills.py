@@ -26,7 +26,7 @@ HONEYBLOOM = Path("/Users/deepak-macmini/honeybloom")
 SKILL_DIRS = [
     HONEYBLOOM / "library" / "skills",
 ]
-ORG_MD = HONEYBLOOM / "library" / "ORG.md"
+ORG_MD = HONEYBLOOM / "library" / "wiki" / "Organization" / "ORG.md"
 
 dry_run = "--dry-run" in sys.argv
 verify_mode = "--verify" in sys.argv
