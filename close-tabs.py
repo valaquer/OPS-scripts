@@ -17,7 +17,7 @@ import re
 
 KITTEN = "/opt/homebrew/bin/kitten"
 
-ORG_PATH = "/Users/deepak-macmini/honeybloom/library/ORG.md"
+ORG_PATH = "/Users/deepak-macmini/honeybloom/library/wiki/Organization/ORG.md"
 JANUS_CSV = "/Users/deepak-macmini/honeybloom/library/scripts/janus-config.csv"
 SSH_KEY = "/Users/deepak-macmini/.ssh/id_hanover"
 MINI_USER = "deepak-macmini"
