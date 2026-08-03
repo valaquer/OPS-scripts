@@ -51,18 +51,17 @@ iMac (d.patnaik@192.168.0.153)
 │   ├── screenshots/                           # Boss drops screenshots here → synced to Mini
 │   ├── postal-mail/                           # Boss drops postal mail here → synced to Mini
 │   ├── drop-zone/                             # Bidirectional sync with Mini
-│   ├── raycast-scripts/                       # Raycast Script Commands (Boss's shortcuts)
-│   │   ├── kitty-open-teammate.sh             # Thin wrapper → SSH to Mini's open-team.sh
-│   │   ├── start-all.sh                       # Full org boot (delegates to Mini)
-│   │   ├── leadership-team.sh                 # Leadership huddle launch
-│   │   ├── rio-team.sh, guru-team.sh, ...     # Per-team launchers
-│   │   ├── +close-team.sh                     # Team closer -- SSH to Mini's close-team.sh
-│   │   ├── scr.sh                             # Latest screenshot path → paste
-│   │   ├── pst.sh                             # Latest postal mail path → paste
-│   │   ├── drp.sh                             # Drop zone message → paste
-│   │   ├── open-aether.sh                     # Open Aether in Safari
-│   │   ├── open-workbench.sh                  # Open workbench apps in Safari
-│   │   └── chrome-cdp.sh                      # Chrome CDP for Playwright
+│   ├── raycast-scripts/                       # All filenames `+`-prefixed (Boss's shortcuts)
+│   │   ├── +open-teammate.sh             # Thin wrapper → SSH to Mini's open-team.sh --solo
+│   │   ├── +start-all.sh                 # Full org boot (delegates to Mini)
+│   │   ├── +xl-team.sh                   # Leadership team → open-team.sh xl
+│   │   ├── +rio-team.sh, +dante-team.sh  # Per-team launchers → open-team.sh {leader}
+│   │   ├── +close-team.sh               # Team closer → SSH to Mini's close-team.sh
+│   │   ├── +scr.sh                       # Latest screenshot path → paste
+│   │   ├── +pst.sh                       # Latest postal mail path → paste
+│   │   ├── +drp.sh                       # Drop zone message → paste
+│   │   ├── +aether.sh                    # Open Aether in Safari
+│   │   └── +chrome-cdp.sh               # Chrome CDP for Playwright
 │   └── .ssh/
 │       └── id_hanover                         # SSH key for iMac→Mini (no passphrase)
 ├── /Users/d.patnaik/Library/LaunchAgents/
@@ -83,7 +82,7 @@ iMac (d.patnaik@192.168.0.153)
 
 ```
 Boss triggers Raycast on iMac
-  → kitty-open-teammate.sh (iMac, 20-line wrapper)
+  → +open-teammate.sh (iMac, 20-line wrapper)
   → SSH to Mini: open-team.sh --solo {name}
   → open-team.sh discovers Kitty socket (/tmp/honeybloom-kitty-*.sock)
   → If Kitty not running: starts Kitty with custom socket name
@@ -171,7 +170,7 @@ Aether (/api/rooms/activate, /api/rooms/deactivate, /api/huddle)
 
 ```
 Boss types teammate name in Raycast on iMac
-  → kitty-open-teammate.sh on iMac
+  → +open-teammate.sh on iMac
   → ssh -i id_hanover deepak-macmini@192.168.0.186 "open-team.sh --solo {name}"
   → Mini: open-team.sh discovers /tmp/honeybloom-kitty-*.sock
   → Mini: kitten @ launch creates tab in Kitty
@@ -184,10 +183,10 @@ Boss types teammate name in Raycast on iMac
 
 ```
 Boss types team leader name in Raycast
-  → rio-team.sh (iMac Raycast script)
+  → +rio-team.sh (iMac Raycast script)
   → ssh to Mini: open-team.sh {leader}
-  → open-team.sh resolves team members from ORG.md
-  → Launches each member via mini-launch.sh (parallel)
+  → open-team.sh resolves team members from ORG.md (supports virtual groups like "xl")
+  → Launches each member locally via kitten @ (parallel)
   → Creates huddle via POST /api/huddle { action: "start", host, participants }
   → Aether: saves huddle room, auto-wakes members, emits SSE
 ```
@@ -195,9 +194,9 @@ Boss types team leader name in Raycast
 ### Boss Opens Everybody (Berlin -- iMac Raycast)
 
 ```
-Boss runs start-all.sh from iMac Raycast
-  → SSH to Mini for each team batch (sequential with sleep 10 between batches)
-  → open-team.sh {leader} per team
+Boss runs +start-all.sh from iMac Raycast
+  → SSH to Mini for each teammate via +open-teammate.sh (sequential with sleep 10 between batches)
+  → open-team.sh --solo {name} per teammate, huddles via curl
   → All 26 teammates launch + 8 auto-huddles + leadership huddle
 ```
 
@@ -227,7 +226,7 @@ Boss uses Mini's local Raycast
 Boss takes screenshot on iMac → saves to ~/screenshots/
   → com.honeybloom.screenshot-sync fires within 5s
   → rsync pulls new file to Mini:/Users/deepak-macmini/screenshots/
-  → Boss runs scr Raycast script
+  → Boss runs +scr Raycast script
   → Script SSHes to Mini: ls -t screenshots/ | head -1
   → Pastes "pick up the latest screenshot at {path}" into Aether input bar
   → Boss hits Enter → teammate reads file at the specified path
@@ -256,7 +255,7 @@ Touches: file availability for Boss→teammate handoffs. Contains hardcoded iMac
 Touches: team closing lifecycle. close-team.sh validates leader, delegates to close-tabs.py which closes ALL group members (tabs, processes, Aether rooms, safes). Changes to close-tabs.py affect ALL callers (close-team.sh, close-the-books skill). close-tabs.py reads ORG.md for group resolution -- path must stay in sync if ORG.md moves again.
 
 ### iMac Raycast scripts (raycast-scripts/)
-Touches: Boss's and Gunnar's interface for launching and closing teammates/teams. The iMac kitty-open-teammate.sh and +close-team.sh are thin wrappers -- changes to open-team.sh and close-team.sh on Mini are the real blast radius. But the LAUNCH path in start-all.sh on iMac must match the iMac's script location.
+Touches: Boss's and Gunnar's interface for launching and closing teammates/teams. All `+`-prefixed. The iMac +open-teammate.sh and +close-team.sh are thin SSH wrappers -- changes to open-team.sh and close-team.sh on Mini are the real blast radius. The LAUNCH path in +start-all.sh on iMac must reference +open-teammate.sh. The iMac copy is the deliverable -- Mini has no Raycast UI.
 
 ### SSH keys
 Touches: ALL cross-machine operations. id_hanover (iMac→Mini) used by Raycast scripts, sync agents, CDP tunnel. id_mini (Mini→iMac) used by mini-launch.sh (Keychain unlock), sync agents, screenshot/postal-mail scripts.
@@ -283,8 +282,8 @@ Touches: file sync (screenshots, postal-mail, drop-zone), vault auto-commit, Key
 ### Hardcoded IPs -- no DHCP reservation
 All cross-machine operations use hardcoded IPs (iMac: 192.168.0.153, Mini: 192.168.0.186) across 12+ files. A DHCP reassignment after router reboot or Ethernet replug breaks all SSH, sync, and Aether LAN access. Fix: set DHCP reservations on the router. Documented in RUNBOOK Known Issues with full file list.
 
-### start-all.sh two-copy divergence
-The script exists on both machines with identical batching logic but different LAUNCH paths. Mini canonical: `LAUNCH="open-team.sh"` (calls `open-team.sh --solo`). iMac Raycast: `LAUNCH="kitty-open-teammate.sh"` (thin wrapper that SSHes to Mini's `open-team.sh --solo`). Never SCP one over the other without updating LAUNCH. Preferred method: `sed` over SSH to update the iMac copy in place. Additional divergences: Mini sleeps 60s between batches, iMac sleeps 10s. Mini has Engineering team (guru, daksh, ines), iMac may not. Sync audit pending.
+### start-all.sh two-copy constraint
+The script exists on both machines with identical batching logic but different LAUNCH paths and HUDDLE_URLs. Mini: `LAUNCH="open-team.sh"`, `HUDDLE_URL="localhost:51730"`. iMac: `LAUNCH="+open-teammate.sh"`, `HUDDLE_URL="192.168.0.186:51730"`. Both copies synced Aug 3. When changing teams or batches, update both in the same session.
 
 ### Silent sync failures
 All rsync sync agents redirect stderr to /dev/null or /tmp/*.err. If SSH key auth breaks, IP changes, or the remote machine is unreachable, sync stops silently. No alerting mechanism for failed syncs.
@@ -312,5 +311,12 @@ Cross-machine infrastructure -- sync mechanisms, SSH architecture, launchd agent
 - Aether URL: localhost:51730 on Mini, 192.168.0.186:51730 from iMac
 - File sync: rsync via launchd, 5-second intervals, SSH key auth
 - Credential access: through Burt, never direct security commands
-- iMac Raycast scripts are thin wrappers -- real logic lives on Mini
+- All iMac Raycast script filenames use `+` prefix (+open-teammate.sh, +rio-team.sh, etc.)
 - Update this file after every shipped REQ (R14)
+
+### Project Guidance (from OJT)
+
+- **iMac is the deliverable.** Boss uses Raycast on the iMac. He cannot physically use Raycast on the Mini. When shipping a Raycast-facing script, the iMac copy is the deliverable. Real logic lives on the Mini; the iMac script is a thin SSH wrapper. No Raycast wrappers on Mini.
+- **Sync both copies in the same session.** start-all.sh exists on both machines with different LAUNCH paths. When changing teams or batches, update both copies in the same session. Never leave a diverged state overnight.
+- **Know who invokes and from where.** Before approving a delivery mechanism, ask "who invokes this and from where?" Boss on iMac uses Raycast. Teammates on Mini use bash. Gunnar on Mini uses bash (close-team.sh). A script placed on the wrong machine serves nobody.
+- **Virtual groups use first member as huddle host.** ORG.md groups with non-teammate hosts (like "xl") fall back to the first member for huddle creation. The directory check in open-team.sh handles this automatically.
