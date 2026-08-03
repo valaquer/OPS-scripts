@@ -158,10 +158,16 @@ echo "All members launched."
 
 participants="[$(printf '"%s",' "${members[@]}" | sed 's/,$//')]"
 
-echo "Creating huddle with host=$LEADER..."
+# If LEADER is a virtual group name (not a teammate), use first member as huddle host
+HUDDLE_HOST="$LEADER"
+if [[ ! -d "/Users/deepak-macmini/honeybloom/$LEADER" ]]; then
+    HUDDLE_HOST="${members[0]}"
+fi
+
+echo "Creating huddle with host=$HUDDLE_HOST..."
 response="$(curl -s -X POST "$HUDDLE_URL" \
     -H "Content-Type: application/json" \
-    -d "{\"action\":\"start\",\"host\":\"$LEADER\",\"participants\":$participants}")"
+    -d "{\"action\":\"start\",\"host\":\"$HUDDLE_HOST\",\"participants\":$participants}")"
 
 room_id="$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('roomId',''))" 2>/dev/null || echo "")"
 
