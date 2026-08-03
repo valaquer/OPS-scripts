@@ -14,7 +14,7 @@
 # All on Mac Mini. 7 batches with 60s gaps to avoid API rate limits.
 # Each group's huddle starts as soon as its batch lands.
 
-LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/kitty-open-teammate.sh"
+LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/open-team.sh"
 HUDDLE_URL="http://localhost:51730/api/huddle"
 
 open_tab() {
