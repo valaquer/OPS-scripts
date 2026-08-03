@@ -44,12 +44,14 @@ def parse_groups(org_path=None):
             members = [m.strip().lower() for m in raw.split(",") if m.strip()]
             if not members or len(set(members)) != len(members):
                 raise ValueError(f"Empty or duplicate ORG group members: {line}")
-            if host not in members:
+            is_virtual = host not in roster
+            if not is_virtual and host not in members:
                 raise ValueError(f"ORG group host is not a member: {line}")
-            groups.append({"host": host, "members": members})
+            groups.append({"host": host, "members": members, "virtual": is_virtual})
     if not roster or len(set(roster)) != len(roster):
         raise ValueError("ORG roster is empty or contains duplicates")
-    assigned = [member for group in groups for member in group["members"]]
+    real_groups = [g for g in groups if not g.get("virtual")]
+    assigned = [member for group in real_groups for member in group["members"]]
     unknown = sorted(set(assigned) - set(roster))
     missing = sorted(set(roster) - set(assigned))
     duplicates = sorted({member for member in assigned if assigned.count(member) > 1})
