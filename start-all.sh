@@ -10,8 +10,8 @@
 # @raycast.title Start
 # @raycast.mode silent
 
-# Opens 24 teammates (staggered) + 6 auto-huddles.
-# All on Mac Mini. 7 batches with 60s gaps to avoid API rate limits.
+# Opens 26 teammates (staggered) + 8 auto-huddles + leadership huddle.
+# All on Mac Mini. 8 batches with 10s gaps to avoid API rate limits.
 # Each group's huddle starts as soon as its batch lands.
 
 LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/open-team.sh"
@@ -45,7 +45,8 @@ open_tab andrea
 open_tab jeh
 wait
 start_huddle felix felix jake
-sleep 60
+start_huddle burt burt
+sleep 10
 
 # --- Batch 2: Ops ---
 open_tab rio
@@ -53,7 +54,7 @@ open_tab chica
 open_tab natalie
 wait
 start_huddle rio rio chica natalie
-sleep 60
+sleep 10
 
 # --- Batch 3: Studio ---
 open_tab dante
@@ -61,7 +62,7 @@ open_tab sierra
 open_tab cindy
 wait
 start_huddle dante dante sierra cindy
-sleep 60
+sleep 10
 
 # --- Batch 4: Chat Engine ---
 open_tab hana
@@ -69,23 +70,23 @@ open_tab wyatt
 open_tab klara
 wait
 start_huddle hana hana wyatt klara
-sleep 60
+sleep 10
 
 # --- Batch 5: Engineering ---
 open_tab guru
 open_tab daksh
 open_tab ines
 wait
-start_huddle guru guru daksh ines
-sleep 60
+start_huddle guru guru daksh ines natalie
+sleep 10
 
 # --- Batch 6: Growth ---
 open_tab kirby
 open_tab ananya
 open_tab nora
 wait
-start_huddle kirby kirby ananya nora
-sleep 60
+start_huddle kirby kirby ananya andrea nora
+sleep 10
 
 # --- Batch 7: Intel, Skills ---
 open_tab juno
@@ -94,5 +95,9 @@ open_tab jukka
 open_tab claire
 wait
 start_huddle juno juno pike jukka claire
+sleep 10
+
+# --- Leadership ---
+start_huddle gunnar gunnar fable felix rio dante hana kirby juno
 
 wait
