@@ -284,7 +284,7 @@ Touches: file sync (screenshots, postal-mail, drop-zone), vault auto-commit, Key
 All cross-machine operations use hardcoded IPs (iMac: 192.168.0.153, Mini: 192.168.0.186) across 12+ files. A DHCP reassignment after router reboot or Ethernet replug breaks all SSH, sync, and Aether LAN access. Fix: set DHCP reservations on the router. Documented in RUNBOOK Known Issues with full file list.
 
 ### start-all.sh two-copy divergence
-The script exists on both machines with identical batching logic but different LAUNCH paths. Mini canonical: `LAUNCH="open-team.sh"`. iMac Raycast: `LAUNCH="kitty-open-teammate.sh"`. Never SCP one over the other without updating LAUNCH. Preferred update: `sed` over SSH.
+The script exists on both machines with identical batching logic but different LAUNCH paths. Mini canonical: `LAUNCH="open-team.sh"` (calls `open-team.sh --solo`). iMac Raycast: `LAUNCH="kitty-open-teammate.sh"` (thin wrapper that SSHes to Mini's `open-team.sh --solo`). Never SCP one over the other without updating LAUNCH. Preferred method: `sed` over SSH to update the iMac copy in place. Additional divergences: Mini sleeps 60s between batches, iMac sleeps 10s. Mini has Engineering team (guru, daksh, ines), iMac may not. Sync audit pending.
 
 ### Silent sync failures
 All rsync sync agents redirect stderr to /dev/null or /tmp/*.err. If SSH key auth breaks, IP changes, or the remote machine is unreachable, sync stops silently. No alerting mechanism for failed syncs.
