@@ -68,10 +68,21 @@ if ! ls "$BACKUP_ROOT"/aether-db/aether-"$TODAY"-*.sql.gz.enc 1>/dev/null 2>&1; 
         find "$BACKUP_ROOT/houston-db" -name "*.gz.enc" -mtime +14 -delete 2>/dev/null
     fi
 
-    # Manhattan DB
+    # Manhattan DB (sqlite3 .dump -- raw file copy fails with WAL mode)
     if [ -f "$HOMEDIR/library/manhattan-app/manhattan.db" ]; then
-        encrypt_file "$HOMEDIR/library/manhattan-app/manhattan.db" "$BACKUP_ROOT/manhattan-db/manhattan-$TIMESTAMP.db.gz.enc" && \
-            echo "$(date): Manhattan DB backed up" >> "$LOG"
+        MANHATTAN_DUMP=$(mktemp)
+        if /usr/bin/sqlite3 "$HOMEDIR/library/manhattan-app/manhattan.db" ".dump" > "$MANHATTAN_DUMP" 2>>"$LOG"; then
+            DUMP_SIZE=$(stat -f%z "$MANHATTAN_DUMP" 2>/dev/null || echo "0")
+            if [ "$DUMP_SIZE" -gt 100 ]; then
+                encrypt_file "$MANHATTAN_DUMP" "$BACKUP_ROOT/manhattan-db/manhattan-$TIMESTAMP.sql.gz.enc" && \
+                    echo "$(date): Manhattan DB backed up ($DUMP_SIZE bytes dump)" >> "$LOG"
+            else
+                echo "$(date): Manhattan DB dump too small ($DUMP_SIZE bytes), skipping" >> "$LOG"
+            fi
+        else
+            echo "$(date): Manhattan DB dump failed" >> "$LOG"
+        fi
+        rm -f "$MANHATTAN_DUMP"
         find "$BACKUP_ROOT/manhattan-db" -name "*.gz.enc" -mtime +14 -delete 2>/dev/null
     fi
 
