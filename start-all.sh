@@ -46,6 +46,7 @@ open_tab jeh
 wait
 start_huddle felix felix jake
 start_huddle burt burt
+start_huddle andrea andrea
 sleep 10
 
 # --- Batch 2: Ops ---
@@ -85,7 +86,7 @@ open_tab kirby
 open_tab ananya
 open_tab nora
 wait
-start_huddle kirby kirby ananya andrea nora
+start_huddle kirby kirby ananya nora
 sleep 10
 
 # --- Batch 7: Intel, Skills ---
