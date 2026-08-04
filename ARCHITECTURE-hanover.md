@@ -197,7 +197,7 @@ Boss types team leader name in Raycast
 Boss runs +start-all.sh from iMac Raycast
   → SSH to Mini for each teammate via +open-teammate.sh (sequential with sleep 10 between batches)
   → open-team.sh --solo {name} per teammate, huddles via curl
-  → All 26 teammates launch + 8 auto-huddles + leadership huddle
+  → All 26 teammates launch + 9 auto-huddles + leadership huddle
 ```
 
 ### Gunnar Closes a Team (iMac Raycast)
@@ -319,4 +319,4 @@ Cross-machine infrastructure -- sync mechanisms, SSH architecture, launchd agent
 - **iMac is the deliverable.** Boss uses Raycast on the iMac. He cannot physically use Raycast on the Mini. When shipping a Raycast-facing script, the iMac copy is the deliverable. Real logic lives on the Mini; the iMac script is a thin SSH wrapper. No Raycast wrappers on Mini.
 - **Sync both copies in the same session.** start-all.sh exists on both machines with different LAUNCH paths. When changing teams or batches, update both copies in the same session. Never leave a diverged state overnight.
 - **Know who invokes and from where.** Before approving a delivery mechanism, ask "who invokes this and from where?" Boss on iMac uses Raycast. Teammates on Mini use bash. Gunnar on Mini uses bash (close-team.sh). A script placed on the wrong machine serves nobody.
-- **Virtual groups use first member as huddle host.** ORG.md groups with non-teammate hosts (like "xl") fall back to the first member for huddle creation. The directory check in open-team.sh handles this automatically.
+- **Virtual groups use first member as huddle host.** ORG.md groups with non-teammate hosts (like "xl") fall back to the first member for huddle creation. The directory check in open-team.sh handles this automatically. Virtual hosts are filtered from Aether's permanent huddle room fixtures (sidebar only shows real teammate huddles).
