@@ -41,11 +41,6 @@ cd "$HOMEDIR/$NAME" || exit 1
 # Build wakeup
 WAKEUP="$(build_wakeup_message "$NAME")"
 
-# Notify Aether that this teammate is activating
-curl -s -o /dev/null -X POST "http://localhost:51730/api/rooms/activate" \
-    -H "Content-Type: application/json" \
-    -d "{\"name\": \"$NAME\"}" 2>/dev/null || true
-
 # Launch harness (only pass WAKEUP when non-empty)
 if [[ "$HARNESS" == *"OpenCode"* ]]; then
     export OPENCODE_DISABLE_AUTOUPDATE=true
