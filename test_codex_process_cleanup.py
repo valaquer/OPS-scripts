@@ -53,7 +53,7 @@ class CodexProcessCleanupIntegrationTest(unittest.TestCase):
         self.addCleanup(self._terminate_if_alive, native_pid)
         host_pid = self._wait_for_child(native_pid)
         self.addCleanup(self._terminate_if_alive, host_pid)
-        command = close_tabs.build_mini_close_command(fixture_dir.name)
+        command = close_tabs.build_close_command(fixture_dir.name)
         result = subprocess.run(
             ["/bin/bash", "-c", command], capture_output=True, text=True, timeout=10
         )

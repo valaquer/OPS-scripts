@@ -55,8 +55,8 @@ def parse_groups(org_path=None):
     unknown = sorted(set(assigned) - set(roster))
     missing = sorted(set(roster) - set(assigned))
     duplicates = sorted({member for member in assigned if assigned.count(member) > 1})
-    if unknown or missing or duplicates:
-        raise ValueError(f"Invalid ORG groups: unknown={unknown}, missing={missing}, duplicates={duplicates}")
+    if unknown or duplicates:
+        raise ValueError(f"Invalid ORG groups: unknown={unknown}, duplicates={duplicates}")
     return groups
 
 
@@ -65,6 +65,16 @@ def find_group(groups, teammate):
         if teammate in group["members"]:
             return group
     return None
+
+
+def is_solo_operator(name, org_path=None):
+    """Return True if name is on the roster but not in any real group."""
+    groups = parse_groups(org_path)
+    real_groups = [g for g in groups if not g.get("virtual")]
+    for g in real_groups:
+        if name in g["members"]:
+            return False
+    return True
 
 
 def discover_socket():
@@ -192,9 +202,9 @@ def main():
     # Validate the complete roster/group contract before closing anything.
     groups = parse_groups()
     group = find_group(groups, teammate)
-    if group is None:
-        print(f"Teammate is missing from ORG groups: {teammate}", file=sys.stderr)
-        sys.exit(1)
+
+    # Solo operators: not in any group, or only in a virtual group.
+    is_solo = group is None or group.get("virtual")
 
     socket = discover_socket()
 
@@ -211,7 +221,7 @@ def main():
 
     close_one(teammate)
 
-    if group:
+    if not is_solo:
         for member in group["members"]:
             if member == teammate:
                 continue

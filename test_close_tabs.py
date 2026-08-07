@@ -22,16 +22,14 @@ class CloseTabsTest(unittest.TestCase):
         with patch.object(close_tabs, "ORG_PATH", org_path):
             groups = close_tabs.parse_groups()
 
-        expected = {"host": "rio", "members": ["rio", "chica", "natalie"]}
+        expected = {"host": "rio", "members": ["rio", "chica", "natalie"], "virtual": False}
         self.assertEqual(groups, [expected])
         self.assertEqual(close_tabs.find_group(groups, "chica"), expected)
 
-    def test_groups_reject_unknown_missing_duplicate_and_invalid_host(self):
+    def test_groups_reject_unknown_and_duplicate(self):
         cases = [
             "Teammate: rio\nTeammate: chica\n## Groups\nrio, unknown (host: rio)\n",
-            "Teammate: rio\nTeammate: chica\n## Groups\nrio (host: rio)\n",
             "Teammate: rio\nTeammate: chica\n## Groups\nrio, chica (host: rio)\nchica (host: chica)\n",
-            "Teammate: rio\nTeammate: chica\n## Groups\nrio, chica (host: natalie)\n",
         ]
         for contents in cases:
             with self.subTest(contents=contents), tempfile.NamedTemporaryFile("w", delete=False) as org:
@@ -41,13 +39,40 @@ class CloseTabsTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 close_tabs.parse_groups(org_path)
 
+    def test_solo_operator_does_not_raise(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as org:
+            org.write("Teammate: rio\nTeammate: burt\n## Groups\nrio (host: rio)\n\n## Sidebar Order\n")
+            org_path = org.name
+        self.addCleanup(pathlib.Path(org_path).unlink)
+
+        with patch.object(close_tabs, "ORG_PATH", org_path):
+            groups = close_tabs.parse_groups()
+        self.assertEqual(len(groups), 1)
+        self.assertIsNone(close_tabs.find_group(groups, "burt"))
+        self.assertTrue(close_tabs.is_solo_operator("burt", org_path))
+        self.assertFalse(close_tabs.is_solo_operator("rio", org_path))
+
+    def test_virtual_group_member_is_solo(self):
+        with tempfile.NamedTemporaryFile("w", delete=False) as org:
+            org.write("Teammate: rio\nTeammate: fable\n## Groups\nrio (host: rio)\nrio, fable (host: xl)\n\n## Sidebar Order\n")
+            org_path = org.name
+        self.addCleanup(pathlib.Path(org_path).unlink)
+
+        with patch.object(close_tabs, "ORG_PATH", org_path):
+            groups = close_tabs.parse_groups()
+        self.assertEqual(len(groups), 2)
+        group = close_tabs.find_group(groups, "fable")
+        self.assertIsNotNone(group)
+        self.assertTrue(group["virtual"])
+        self.assertTrue(close_tabs.is_solo_operator("fable", org_path))
+
     def test_live_org_has_current_full_roster_and_groups(self):
         groups = close_tabs.parse_groups()
-        self.assertEqual(sum(len(group["members"]) for group in groups), 26)
-        self.assertEqual(len(groups), 10)
+        self.assertEqual(sum(len(group["members"]) for group in groups), 27)
+        self.assertEqual(len(groups), 8)
 
     def test_cleanup_order_includes_codex_descendants_native_and_launcher(self):
-        command = close_tabs.build_mini_close_command("rio")
+        command = close_tabs.build_close_command("rio")
 
         self.assertIn('record_descendants "$native"', command)
         self.assertLess(command.index('add_target "$native" native'), command.index('add_target "$launcher" launcher'))
@@ -58,10 +83,10 @@ class CloseTabsTest(unittest.TestCase):
 
     def test_cleanup_rejects_altered_teammate_input(self):
         with self.assertRaisesRegex(ValueError, "Invalid teammate name"):
-            close_tabs.build_mini_close_command("rio; touch /tmp/bad")
+            close_tabs.build_close_command("rio; touch /tmp/bad")
 
     def test_force_kill_skips_same_command_with_different_start(self):
-        definitions = close_tabs.build_mini_close_command("rio").split('targets=""')[0]
+        definitions = close_tabs.build_close_command("rio").split('targets=""')[0]
         script = definitions + r'''
 command_of() { printf /tmp/bin/codex-code-mode-host; }
 cwd_of() { printf '%s' "$expected_cwd"; }
@@ -80,33 +105,35 @@ still_target "$pid" && kill -9 "$pid" || true
         result = subprocess.run(["/bin/bash", "-c", script], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_remote_survivors_propagate_and_abort_fallback(self):
-        result = subprocess.CompletedProcess(
-            args=["ssh"], returncode=1, stdout="", stderr="surviving teammate processes: 123"
-        )
-        with patch.object(close_tabs.subprocess, "run", return_value=result):
-            with self.assertRaisesRegex(RuntimeError, "surviving teammate processes: 123"):
-                close_tabs.close_mini_tab("rio")
-
-    def test_remote_none_is_explicit_fallback_status(self):
-        result = subprocess.CompletedProcess(args=["ssh"], returncode=0, stdout="none\n", stderr="")
-        with patch.object(close_tabs.subprocess, "run", return_value=result):
-            self.assertEqual(close_tabs.close_mini_tab("rio"), "none")
-
-    def test_remote_survivor_failure_aborts_without_local_close_or_notify(self):
+    def test_process_failure_propagates_from_main(self):
         with (
             patch.object(close_tabs.sys, "argv", ["close-tabs.py", "rio"]),
-            patch.object(close_tabs, "parse_groups", return_value=[{"host": "rio", "members": ["rio"]}]),
+            patch.object(close_tabs, "parse_groups", return_value=[{"host": "rio", "members": ["rio"], "virtual": False}]),
             patch.object(close_tabs, "discover_socket", return_value="unix:/tmp/test.sock"),
-            patch.object(close_tabs, "get_machine", return_value="mini"),
-            patch.object(close_tabs, "close_mini_tab", side_effect=RuntimeError("surviving teammate processes: 123")),
-            patch.object(close_tabs, "close_tab") as close_tab,
-            patch.object(close_tabs, "notify_aether") as notify,
+            patch.object(close_tabs, "kill_processes", side_effect=RuntimeError("Process cleanup failed for rio: exit 1")),
+            patch.object(close_tabs, "close_tab") as mock_close_tab,
+            patch.object(close_tabs, "notify_aether") as mock_notify,
         ):
-            with self.assertRaisesRegex(RuntimeError, "surviving teammate processes: 123"):
+            with self.assertRaisesRegex(RuntimeError, "Process cleanup failed"):
                 close_tabs.main()
-            close_tab.assert_not_called()
-            notify.assert_not_called()
+            mock_close_tab.assert_not_called()
+            mock_notify.assert_not_called()
+
+    def test_solo_operator_closes_only_individual(self):
+        killed = []
+        def track_kill(name):
+            killed.append(name)
+            return "none"
+        with (
+            patch.object(close_tabs.sys, "argv", ["close-tabs.py", "andrea"]),
+            patch.object(close_tabs, "parse_groups", return_value=[
+                {"host": "rio", "members": ["rio", "chica"], "virtual": False},
+            ]),
+            patch.object(close_tabs, "discover_socket", return_value=None),
+            patch.object(close_tabs, "kill_processes", side_effect=track_kill),
+        ):
+            close_tabs.main()
+        self.assertEqual(killed, ["andrea"])
 
 
 if __name__ == "__main__":

@@ -22,12 +22,21 @@ if ! echo "$LEADER" | grep -qE '^[a-z0-9-]+$'; then
     exit 1
 fi
 
-if ! grep -qE "\(host: *${LEADER}\)" "$ORG_PATH"; then
-    echo "Not a team leader in ORG.md: $LEADER" >&2
+if grep -qE "\(host: *${LEADER}\)" "$ORG_PATH"; then
+    echo "Closing team: $LEADER"
+elif grep -qiE "^Teammate: *${LEADER} *$" "$ORG_PATH" && \
+     python3 -c "
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('ct', '$SCRIPT_DIR/close-tabs.py')
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+sys.exit(0 if mod.is_solo_operator('$LEADER') else 1)
+" 2>/dev/null; then
+    echo "Closing solo: $LEADER"
+else
+    echo "Not a team leader or solo operator in ORG.md: $LEADER" >&2
     exit 1
 fi
-
-echo "Closing team: $LEADER"
 python3 "$SCRIPT_DIR/close-tabs.py" "$LEADER"
 
 AETHER_URL="http://localhost:51730"

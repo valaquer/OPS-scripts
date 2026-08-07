@@ -80,12 +80,17 @@ mini-launch.sh (runs on Mac Mini via SSH)
   └── exec: claude, opencode, or codex binary selected by Janus
 
 close-tabs.py
-  ├── validates: the complete ORG.md roster and `## Groups` membership/host contract
-  ├── reads: canonical Janus CSV (machine column)
+  ├── validates: ORG.md roster and `## Groups` (unknown members, duplicates; solo operators valid)
   ├── discovers: Kitty socket
-  ├── calls: SSH to Mini (allowlisted, birth-fingerprinted Codex/Claude tree teardown)
+  ├── kills: local Codex/Claude processes (birth-fingerprinted, cwd-validated)
   ├── calls: safe.sh unmount (if teammate has a safe)
-  └── calls: Facade /api/rooms/deactivate
+  ├── calls: Aether /api/rooms/deactivate
+  └── exports: is_solo_operator() (used by close-team.sh for gatekeeper check)
+
+close-team.sh
+  ├── validates: leader name against ORG.md (host check OR solo operator via is_solo_operator())
+  ├── calls: close-tabs.py (closes team members or solo individual)
+  └── calls: Aether /api/archive-huddle (archives team huddle session)
 
 start-all.sh
   ├── calls: kitty-open-teammate.sh --solo (26 times, parallel)
