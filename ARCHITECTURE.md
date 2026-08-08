@@ -28,6 +28,7 @@ library/scripts/                          # Repo root (valaquer/OPS-scripts)
 ├── open-workbench.sh                   # ACTIVE — Raycast "Workbench" (3 tabs)
 ├── provision-workbench-app.sh          # ACTIVE — Scaffold new Workbench-family app from template
 ├── open-markwhen.sh                    # ACTIVE — Raycast "Markwhen"
+├── bavaria-csv009-monitor.py            # ACTIVE — Bavaria CSV009 watchdog (2-min launchd poll)
 ├── notes-create.sh                     # ACTIVE — Apple Notes creation via SSH to iMac
 ├── reminder-agent.sh                   # ACTIVE — Launchd reminder agent
 ├── com.honeybloom.reminder-agent.plist # ACTIVE — Launchd plist for reminder agent
