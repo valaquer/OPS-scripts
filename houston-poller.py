@@ -300,8 +300,8 @@ def main():
         if status == "skip":
             continue
 
-        # Supabase retry-before-alert: one 5s retry on any unhealthy outcome
-        if vendor == "supabase" and status == "unhealthy":
+        # Retry-before-alert (Supabase, Resend): one 5s retry on any unhealthy outcome
+        if vendor in ("supabase", "resend") and status == "unhealthy":
             time.sleep(5)
             try:
                 retry_result = check_fn()
