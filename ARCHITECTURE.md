@@ -28,6 +28,7 @@ library/scripts/                          # Repo root (valaquer/OPS-scripts)
 ├── open-workbench.sh                   # ACTIVE — Raycast "Workbench" (3 tabs)
 ├── provision-workbench-app.sh          # ACTIVE — Scaffold new Workbench-family app from template
 ├── open-markwhen.sh                    # ACTIVE — Raycast "Markwhen"
+├── notes-create.sh                     # ACTIVE — Apple Notes creation via SSH to iMac
 ├── reminder-agent.sh                   # ACTIVE — Launchd reminder agent
 ├── com.honeybloom.reminder-agent.plist # ACTIVE — Launchd plist for reminder agent
 ├── vault.py                            # ACTIVE — Encrypted vault (SQLCipher)
@@ -77,6 +78,7 @@ mini-launch.sh (runs on Mac Mini via SSH)
   ├── reads: NFS .tmp/ (wakeup prompt + password files)
   ├── calls: security unlock-keychain (Mini Keychain)
   ├── exports: FACADE_URL (LAN IP for hooks)
+  ├── NOTE: activate call removed (REQ-314) -- open-team.sh is sole caller of /api/rooms/activate
   └── exec: claude, opencode, or codex binary selected by Janus
 
 close-tabs.py
@@ -125,6 +127,11 @@ aether-relay.sh (PostToolUse)
 
 inject-timestamp.sh (UserPromptSubmit)
   └── outputs: JSON hookSpecificOutput (timestamp only)
+
+block-aether-db.py (PreToolUse)
+  ├── blocks: Bash/Write/Edit targeting aether.db, aether.db-wal, aether.db-shm
+  ├── exception: Burt redaction UPDATEs on messages table (cwd + UPDATE + messages check)
+  └── exception: OPS team (rio, chica, natalie) sqlite3 -readonly diagnostic queries (cwd + -readonly flag check, SQLite engine enforces)
 
 block-subagents.py (PreToolUse)
   └── blocks: Task tool (dual-protocol: stdout "deny" + exit 2)
@@ -204,6 +211,7 @@ mcp-reddit/server.py
 
 | Event | Script | Matcher | Timeout | Harness |
 |-------|--------|---------|---------|---------|
+| PreToolUse | block-aether-db.py | Bash | 5s | Claude Code only |
 | PreToolUse | transcript-protection-hook.py | Bash | 5s | Claude Code only |
 | PreToolUse | protect-outbox.py | Bash | 5s | Claude Code only |
 | PreToolUse | block-subagents.py | Task | 5s | Both (dual-protocol) |
