@@ -179,7 +179,7 @@ def notify_aether(name):
     try:
         data = json.dumps({"name": name}).encode()
         req = urllib.request.Request(
-            "http://localhost:51730/api/rooms/deactivate",
+            os.environ.get("AETHER_URL", "http://localhost:51730") + "/api/rooms/deactivate",
             data=data,
             headers={"Content-Type": "application/json"},
             method="POST",
