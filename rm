@@ -1,0 +1,47 @@
+#!/bin/bash
+# rm wrapper — moves files to macOS Trash instead of permanent delete
+# Teammates use /bin/rm for actual deletion only via this wrapper
+
+TRASH="$HOME/.Trash"
+
+# Parse out flags, collect paths
+FLAGS=()
+PATHS=()
+END_OF_FLAGS=false
+for arg in "$@"; do
+    if [[ "$END_OF_FLAGS" == true ]]; then
+        PATHS+=("$arg")
+    elif [[ "$arg" == "--" ]]; then
+        END_OF_FLAGS=true
+    elif [[ "$arg" == -* ]]; then
+        FLAGS+=("$arg")
+    else
+        PATHS+=("$arg")
+    fi
+done
+
+if [[ ${#PATHS[@]} -eq 0 ]]; then
+    /bin/rm "$@"
+    exit $?
+fi
+
+# Refuse dangerous paths
+for p in "${PATHS[@]}"; do
+    resolved=$(cd "$(dirname "$p")" 2>/dev/null && pwd)/$(basename "$p")
+    case "$resolved" in
+        /|/Users|/Users/deepak-macmini|/System*|/Library*|/bin*|/usr*)
+            echo "rm wrapper: refusing dangerous path: $p" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Move to Trash with timestamp prefix
+for p in "${PATHS[@]}"; do
+    if [[ -e "$p" ]]; then
+        base=$(basename "$p")
+        ts=$(date +%Y%m%d%H%M%S)
+        dest="$TRASH/${ts}-${base}"
+        mv "$p" "$dest" 2>/dev/null || /bin/rm "${FLAGS[@]}" "$p"
+    fi
+done

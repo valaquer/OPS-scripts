@@ -1,0 +1,27 @@
+teammate,role,model,harness,provider,api_key,effort_level,model_api_id,machine
+Rio,Shift-left QA (Ops),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Chica,Internal Tooling Principal,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Sierra,Product Principal,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Daksh,App Principal,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Juno,R&D Lead,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Ananya,Community Manager & Copywriter,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Andrea,UI/UX Designer & Engineer,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Claire,Curator & PM,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Felix,CFO & Legal Counsel,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Pike,R&D Principal,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Dante,Shift-left QA (Visual),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Kirby,Growth Lead & QA,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Guru,Shift-left QA (Prague),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Burt,Credential Security Officer,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Gunnar,TBD,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Natalie,Contrarian (Ops),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Ines,Contrarian (Prague),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Klara,Studio Principal,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Hana,Shift-left QA (Visual Pipeline),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Wyatt,Contrarian (Chat Engine),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Cindy,Contrarian (Visual + Chat),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Nora,Contrarian (Growth),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Jeh,Huddle Analyst,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Jukka,Contrarian (R&D),Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Jake,Finance & Legal,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini
+Fable,Strategy Consultant,Sol,Codex,OpenAI,,high,gpt-5.6-sol,mini

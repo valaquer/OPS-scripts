@@ -10,8 +10,8 @@
 # @raycast.title Start
 # @raycast.mode silent
 
-# Opens 26 teammates (staggered) + 8 auto-huddles + leadership huddle.
-# All on Mac Mini. 8 batches with 10s gaps to avoid API rate limits.
+# Opens 23 teammates (staggered) + 6 auto-huddles + leadership huddle.
+# All on Mac Mini. 7 batches with 10s gaps to avoid API rate limits.
 # Each group's huddle starts as soon as its batch lands.
 
 LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/open-team.sh"
@@ -45,8 +45,6 @@ open_tab andrea
 open_tab jeh
 wait
 start_huddle felix felix jake
-start_huddle burt burt
-start_huddle andrea andrea
 sleep 10
 
 # --- Batch 2: Ops ---
@@ -73,15 +71,7 @@ wait
 start_huddle hana hana wyatt klara
 sleep 10
 
-# --- Batch 5: Engineering ---
-open_tab guru
-open_tab daksh
-open_tab ines
-wait
-start_huddle guru guru daksh ines natalie
-sleep 10
-
-# --- Batch 6: Growth ---
+# --- Batch 5: Growth ---
 open_tab kirby
 open_tab ananya
 open_tab nora
@@ -89,7 +79,7 @@ wait
 start_huddle kirby kirby ananya nora
 sleep 10
 
-# --- Batch 7: Intel, Skills ---
+# --- Batch 6: Intel, Skills ---
 open_tab juno
 open_tab pike
 open_tab jukka
