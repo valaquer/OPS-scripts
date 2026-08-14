@@ -197,5 +197,67 @@ def bear_create(title: str, text: str = "", tag: str = "") -> str:
         return f"Create failed: {e}"
 
 
+@mcp.tool()
+def bear_delete(uid: str) -> str:
+    """Trash a Bear note (recoverable from Bear's trash).
+
+    Args:
+        uid: Note unique identifier
+    """
+    url = f"bear://x-callback-url/trash?id={uid}"
+    try:
+        result = subprocess.run(
+            IMAC_SSH_OPTS + [f"open '{url}'"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return f"Delete failed: {result.stderr.strip()}"
+        teammate = get_teammate_name()
+        log_write(uid, teammate)
+        return f"Note {uid} moved to trash."
+    except subprocess.TimeoutExpired:
+        return "Delete failed: SSH timeout."
+    except Exception as e:
+        return f"Delete failed: {e}"
+
+
+@mcp.tool()
+def bear_edit(uid: str, old_text: str, new_text: str) -> str:
+    """Surgically edit a Bear note by replacing old_text with new_text.
+
+    Args:
+        uid: Note unique identifier
+        old_text: Text to find in the note
+        new_text: Replacement text
+    """
+    try:
+        sql = f"SELECT ZTEXT FROM ZSFNOTE WHERE ZUNIQUEIDENTIFIER = '{uid}' AND ZTRASHED = 0"
+        output = ssh_query(sql).strip()
+        if not output:
+            return f"Note not found: {uid}"
+
+        if old_text not in output:
+            return f"old_text not found in note."
+
+        updated = output.replace(old_text, new_text, 1)
+        encoded = urllib.parse.quote(updated, safe="")
+        url = f"bear://x-callback-url/add-text?id={uid}&text={encoded}&mode=replace_all"
+
+        result = subprocess.run(
+            IMAC_SSH_OPTS + [f"open '{url}'"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return f"Edit failed: {result.stderr.strip()}"
+
+        teammate = get_teammate_name()
+        log_write(uid, teammate)
+        return f"Note {uid} edited."
+    except subprocess.TimeoutExpired:
+        return "Edit failed: SSH timeout."
+    except Exception as e:
+        return f"Edit failed: {e}"
+
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")
