@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Honeybloom Bear — Read/write MCP server for Bear note collaboration.
-Reads from Mini's local Bear DB (SQLite, read-only).
+Reads from iMac Bear DB via SSH (no iCloud sync delay).
 Writes via x-callback-url on iMac (SSH) to keep Bear's cache in sync.
 """
 # /// script
@@ -19,9 +19,29 @@ from mcp.server.fastmcp import FastMCP
 BEAR_DB = os.path.expanduser(
     "~/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data/database.sqlite"
 )
+IMAC_BEAR_DB = r"~/Library/Group\ Containers/9K33E3U3T4.net.shinyfrog.bear/Application\ Data/database.sqlite"
+IMAC_SSH_OPTS = [
+    "ssh",
+    "-o", "ControlMaster=auto",
+    "-o", "ControlPath=/tmp/bear-watcher-ssh",
+    "-o", "ControlPersist=300",
+    "-o", "ConnectTimeout=3",
+    "-o", "BatchMode=yes",
+    "imac",
+]
 WRITE_LEDGER_PATH = "/var/tmp/bear-write-ledger.json"
 
 mcp = FastMCP("honeybloom-bear")
+
+
+def ssh_query(sql: str) -> str:
+    result = subprocess.run(
+        IMAC_SSH_OPTS + [f'sqlite3 {IMAC_BEAR_DB} "{sql}"'],
+        capture_output=True, text=True, timeout=10,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip())
+    return result.stdout
 
 
 def get_db():
@@ -37,12 +57,13 @@ def get_teammate_name():
 
 
 def log_write(uid: str, teammate: str):
+    import time
     try:
         ledger = {}
         if os.path.exists(WRITE_LEDGER_PATH):
             with open(WRITE_LEDGER_PATH) as f:
                 ledger = json.load(f)
-        ledger[uid] = teammate
+        ledger[uid] = {"teammate": teammate, "ts": time.time()}
         with open(WRITE_LEDGER_PATH, "w") as f:
             json.dump(ledger, f)
     except Exception:
@@ -57,27 +78,25 @@ def bear_read(title: str = "", uid: str = "") -> str:
         title: Note title to search for (case-insensitive)
         uid: Note unique identifier (takes priority over title)
     """
-    conn = get_db()
-    try:
-        if uid:
-            cursor = conn.execute(
-                "SELECT ZTITLE, ZTEXT FROM ZSFNOTE WHERE ZUNIQUEIDENTIFIER = ? AND ZTRASHED = 0",
-                (uid,),
-            )
-        elif title:
-            cursor = conn.execute(
-                "SELECT ZTITLE, ZTEXT FROM ZSFNOTE WHERE ZTITLE LIKE ? AND ZTRASHED = 0",
-                (f"%{title}%",),
-            )
-        else:
-            return "Provide either title or uid."
+    if not uid and not title:
+        return "Provide either title or uid."
 
-        row = cursor.fetchone()
-        if not row:
+    if uid:
+        sql = f"SELECT ZTITLE, ZTEXT FROM ZSFNOTE WHERE ZUNIQUEIDENTIFIER = '{uid}' AND ZTRASHED = 0"
+    else:
+        safe_title = title.replace("'", "''")
+        sql = f"SELECT ZTITLE, ZTEXT FROM ZSFNOTE WHERE ZTITLE LIKE '%{safe_title}%' AND ZTRASHED = 0"
+
+    try:
+        output = ssh_query(sql)
+        if not output.strip():
             return f"Note not found: {title or uid}"
-        return f"# {row[0]}\n\n{row[1]}"
-    finally:
-        conn.close()
+        parts = output.split("|", 1)
+        if len(parts) == 2:
+            return f"# {parts[0]}\n\n{parts[1]}"
+        return output
+    except Exception as e:
+        return f"Read failed: {e}"
 
 
 @mcp.tool()
@@ -87,29 +106,31 @@ def bear_list(tag: str = "") -> str:
     Args:
         tag: Filter by tag name (e.g. 'manhattan', 'klara')
     """
-    conn = get_db()
-    try:
-        if tag:
-            cursor = conn.execute(
-                """SELECT DISTINCT n.ZUNIQUEIDENTIFIER, n.ZTITLE
-                   FROM ZSFNOTE n
-                   JOIN Z_5TAGS jt ON jt.Z_5NOTES = n.Z_PK
-                   JOIN ZSFNOTETAG t ON t.Z_PK = jt.Z_13TAGS
-                   WHERE n.ZTRASHED = 0 AND LOWER(t.ZTITLE) LIKE ?
-                   ORDER BY n.ZMODIFICATIONDATE DESC""",
-                (f"%{tag.lower()}%",),
-            )
-        else:
-            cursor = conn.execute(
-                "SELECT ZUNIQUEIDENTIFIER, ZTITLE FROM ZSFNOTE WHERE ZTRASHED = 0 ORDER BY ZMODIFICATIONDATE DESC"
-            )
+    if tag:
+        safe_tag = tag.lower().replace("'", "''")
+        sql = (
+            "SELECT DISTINCT n.ZUNIQUEIDENTIFIER, n.ZTITLE "
+            "FROM ZSFNOTE n "
+            "JOIN Z_5TAGS jt ON jt.Z_5NOTES = n.Z_PK "
+            "JOIN ZSFNOTETAG t ON t.Z_PK = jt.Z_13TAGS "
+            f"WHERE n.ZTRASHED = 0 AND LOWER(t.ZTITLE) LIKE '%{safe_tag}%' "
+            "ORDER BY n.ZMODIFICATIONDATE DESC"
+        )
+    else:
+        sql = "SELECT ZUNIQUEIDENTIFIER, ZTITLE FROM ZSFNOTE WHERE ZTRASHED = 0 ORDER BY ZMODIFICATIONDATE DESC"
 
-        rows = cursor.fetchall()
-        if not rows:
+    try:
+        output = ssh_query(sql)
+        if not output.strip():
             return "No notes found."
-        return "\n".join(f"- {row[1]} (id: {row[0]})" for row in rows)
-    finally:
-        conn.close()
+        lines = []
+        for line in output.strip().split("\n"):
+            parts = line.split("|", 1)
+            if len(parts) == 2:
+                lines.append(f"- {parts[1]} (id: {parts[0]})")
+        return "\n".join(lines) if lines else "No notes found."
+    except Exception as e:
+        return f"List failed: {e}"
 
 
 @mcp.tool()
