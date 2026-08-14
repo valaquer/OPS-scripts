@@ -104,7 +104,7 @@ def get_tags_for_note(uid: str) -> list[str]:
         return []
 
 
-def resolve_room(tags: list[str]) -> str | None:
+def resolve_room(tags: list[str]) -> "str | None":
     """Route notification based on tag priority: project > team > person."""
     for project in PROJECT_ROOMS:
         if project in tags:
@@ -121,7 +121,7 @@ def resolve_room(tags: list[str]) -> str | None:
     return None
 
 
-def get_huddle_room(name: str, kind: str) -> str | None:
+def get_huddle_room(name: str, kind: str) -> "str | None":
     """Find an active huddle room by name."""
     try:
         req = urllib.request.urlopen(f"{AETHER_URL}/api/rooms", timeout=5)
