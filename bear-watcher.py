@@ -144,22 +144,18 @@ def get_huddle_room(name: str, kind: str) -> "str | None":
     return None
 
 
-LEDGER_EXPIRY_SECONDS = 120
-
-
 def read_write_ledger() -> dict[str, dict]:
     """Read the MCP write ledger. Returns {uid: {teammate, ts}}."""
     try:
         with open(WRITE_LEDGER_PATH) as f:
             raw = json.load(f)
-        now = time.time()
-        fresh = {}
+        result = {}
         for uid, entry in raw.items():
-            if isinstance(entry, dict) and now - entry.get("ts", 0) < LEDGER_EXPIRY_SECONDS:
-                fresh[uid] = entry
+            if isinstance(entry, dict):
+                result[uid] = entry
             elif isinstance(entry, str):
-                fresh[uid] = {"teammate": entry, "ts": 0}
-        return fresh
+                result[uid] = {"teammate": entry, "ts": 0}
+        return result
     except Exception:
         return {}
 
