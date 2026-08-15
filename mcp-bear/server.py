@@ -9,6 +9,7 @@ Writes via x-callback-url on iMac (SSH) to keep Bear's cache in sync.
 # dependencies = ["mcp[cli]>=1.2.0"]
 # ///
 
+import fcntl
 import json
 import os
 import sqlite3
@@ -30,6 +31,7 @@ IMAC_SSH_OPTS = [
     "imac",
 ]
 WRITE_LEDGER_PATH = "/var/tmp/bear-write-ledger.json"
+CREATE_LOCK_PATH = "/var/tmp/bear-create.lock"
 
 mcp = FastMCP("honeybloom-bear")
 
@@ -186,35 +188,42 @@ def bear_create(title: str, text: str = "", tag: str = "") -> str:
         text: Note content
         tag: Tag to apply (e.g. 'manhattan')
     """
-    existing_uid = find_note_by_title(title)
-    if existing_uid:
-        if not text:
-            return f"Note '{title}' already exists (id: {existing_uid}). No text to append."
-        result = bear_write(existing_uid, text, mode="append")
-        tag_note = f" Tag '{tag}' not applied -- check existing note's tags." if tag else ""
-        return f"Note '{title}' already exists -- appended to existing note (id: {existing_uid}).{tag_note}"
-
-    params = {"title": title}
-    if text:
-        params["text"] = text
-    if tag:
-        params["tags"] = tag
-
-    query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
-    url = f"bear://x-callback-url/create?{query}"
-
+    lock_fd = open(CREATE_LOCK_PATH, "w")
     try:
-        result = subprocess.run(
-            ["ssh", "-o", "ConnectTimeout=3", "-o", "BatchMode=yes", "imac", f"open -g '{url}'"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0:
-            return f"Create failed: {result.stderr.strip()}"
-        return f"Note '{title}' created."
-    except subprocess.TimeoutExpired:
-        return "Create failed: SSH timeout."
-    except Exception as e:
-        return f"Create failed: {e}"
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+
+        existing_uid = find_note_by_title(title)
+        if existing_uid:
+            if not text:
+                return f"Note '{title}' already exists (id: {existing_uid}). No text to append."
+            result = bear_write(existing_uid, text, mode="append")
+            tag_note = f" Tag '{tag}' not applied -- check existing note's tags." if tag else ""
+            return f"Note '{title}' already exists -- appended to existing note (id: {existing_uid}).{tag_note}"
+
+        params = {"title": title}
+        if text:
+            params["text"] = text
+        if tag:
+            params["tags"] = tag
+
+        query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+        url = f"bear://x-callback-url/create?{query}"
+
+        try:
+            result = subprocess.run(
+                ["ssh", "-o", "ConnectTimeout=3", "-o", "BatchMode=yes", "imac", f"open -g '{url}'"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0:
+                return f"Create failed: {result.stderr.strip()}"
+            return f"Note '{title}' created."
+        except subprocess.TimeoutExpired:
+            return "Create failed: SSH timeout."
+        except Exception as e:
+            return f"Create failed: {e}"
+    finally:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
 
 
 @mcp.tool()
