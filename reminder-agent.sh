@@ -7,7 +7,7 @@ set -uo pipefail
 HONEYBLOOM="/Users/deepak-macmini/honeybloom"
 ORG_FILE="$HONEYBLOOM/library/ORG.md"
 STATE_DIR="$HONEYBLOOM/library/aether/reminders-state"
-AETHER_URL="http://localhost:51730"
+AETHER_URL="http://localhost:51820"
 
 # Current time components
 NOW_HOUR=$(date +%H)

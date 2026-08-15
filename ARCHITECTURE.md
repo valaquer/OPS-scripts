@@ -48,6 +48,10 @@ library/scripts/                          # Repo root (valaquer/OPS-scripts)
 ├── calendar-wake.sh                    # LEGACY — Calendar-based teammate wake
 ├── clean-memory-file-cruft.sh         # LEGACY — Memory file cleanup
 ├── meeting-status.sh                   # LEGACY — Meeting status check
+├── bear-watcher.py                     # ACTIVE — Bear note change watcher (iMac DB poll, session batching, Aether notification)
+├── bear-watcher.sh                     # ACTIVE — Bear note watcher shell fallback (single-note)
+├── mcp-bear/
+│   └── server.py                       # ACTIVE — Bear MCP server (4 tools: read, list, write, create)
 ├── mirror-system-config.sh            # LEGACY — System config mirror
 ├── setup-from-drive.sh                # ACTIVE — Setup from Google Drive backup
 ├── transfer-to-drive.sh              # ACTIVE — Transfer to Google Drive backup

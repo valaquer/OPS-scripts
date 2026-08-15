@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 KITTEN="/opt/homebrew/bin/kitten"
 MINI_LAUNCH="$SCRIPT_DIR/mini-launch.sh"
 ORG_MD="/Users/deepak-macmini/honeybloom/library/wiki/Organization/ORG.md"
-AETHER_URL="${AETHER_URL:-http://localhost:51730}"
+AETHER_URL="${AETHER_URL:-http://localhost:51820}"
 HUDDLE_URL="$AETHER_URL/api/huddle"
 PINNED_URL="$AETHER_URL/api/pinned-rooms"
 

@@ -39,7 +39,7 @@ else
 fi
 python3 "$SCRIPT_DIR/close-tabs.py" "$LEADER"
 
-AETHER_URL="${AETHER_URL:-http://localhost:51730}"
+AETHER_URL="${AETHER_URL:-http://localhost:51820}"
 ROOM_ID=$(curl -s "$AETHER_URL/api/rooms" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)

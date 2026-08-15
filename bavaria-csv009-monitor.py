@@ -10,7 +10,7 @@ import urllib.error
 
 BAVARIA_DIR = "/Users/deepak-macmini/honeybloom/library/bavaria"
 CSV009_PATH = "/Users/deepak-macmini/honeybloom/library/ip/prompt-engineer-v8/CSV009-outputs.csv"
-AETHER_URL = "http://localhost:51730"
+AETHER_URL = "http://localhost:51820"
 ASSET_CODE_RE = re.compile(r"0{3}\d{3}")
 
 

@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 CREDS_DIR = "/Users/houston/.secrets"
 STATE_FILE = "/var/tmp/houston-poller-state.json"
 HOUSTON_DB = "/Users/deepak-macmini/honeybloom/library/houston-app/houston.db"
-AETHER_URL = os.environ.get("AETHER_URL", "http://localhost:51730")
+AETHER_URL = os.environ.get("AETHER_URL", "http://localhost:51820")
 ALERT_URL = f"{AETHER_URL}/api/houston-alert"
 SUPABASE_REF = "rdsgujuyoumygpvsmzaq"
 UA = "Houston/1.0"

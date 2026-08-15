@@ -145,7 +145,7 @@ case "$TOOL_NAME" in
 esac
 
 # Determine room — resolve to active session-scoped room, fall back to short-form
-ACTIVE_ROOM="$(curl -s --max-time 1 "${AETHER_URL:-http://localhost:51730}/api/active-rooms?teammate=${TEAMMATE}" 2>/dev/null | jq -r '.[0] // empty' 2>/dev/null)"
+ACTIVE_ROOM="$(curl -s --max-time 1 "${AETHER_URL:-http://localhost:51820}/api/active-rooms?teammate=${TEAMMATE}" 2>/dev/null | jq -r '.[0] // empty' 2>/dev/null)"
 ROOM="${ACTIVE_ROOM:-direct-${TEAMMATE}}"
 
 # POST to Aether — env vars + temp file to avoid shell arg limits on large output
@@ -167,7 +167,7 @@ jq -n '{
     summary: env.RELAY_SUMMARY
 }' > "$TMPFILE" 2>/dev/null
 
-curl -s -o /dev/null -X POST "${AETHER_URL:-http://localhost:51730}/api/tool-activity" \
+curl -s -o /dev/null -X POST "${AETHER_URL:-http://localhost:51820}/api/tool-activity" \
     -H "Content-Type: application/json" \
     --data @"$TMPFILE"
 

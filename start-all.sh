@@ -15,7 +15,7 @@
 # Each group's huddle starts as soon as its batch lands.
 
 LAUNCH="/Users/deepak-macmini/honeybloom/library/scripts/open-team.sh"
-HUDDLE_URL="http://localhost:51730/api/huddle"
+HUDDLE_URL="http://localhost:51820/api/huddle"
 
 open_tab() {
     # Skip if teammate already has an active Kitty tab
@@ -88,7 +88,19 @@ wait
 start_huddle juno juno pike jukka claire
 sleep 10
 
-# --- Leadership ---
-start_huddle gunnar gunnar fable felix rio dante hana kirby juno
+# --- Strategy (Gunnar solo) + Leadership (Honeybloom work huddle) ---
+start_huddle gunnar gunnar
+
+start_work_huddle() {
+    local host="$1"
+    local project="$2"
+    shift 2
+    local participants="[$(printf '"%s",' "$@" | sed 's/,$//')]"
+    curl -s -X POST "$HUDDLE_URL" \
+        -H "Content-Type: application/json" \
+        -d "{\"action\":\"start\",\"host\":\"$host\",\"participants\":$participants,\"project\":\"$project\"}" \
+        > /dev/null 2>&1 &
+}
+start_work_huddle fable Honeybloom fable felix rio dante hana kirby juno
 
 wait

@@ -5,10 +5,10 @@
 # @raycast.title leadership-team
 # @raycast.mode silent
 
-HUDDLE_URL="http://localhost:51730/api/huddle"
-PARTICIPANTS='["gunnar","fable","felix","rio","dante","hana","guru","kirby","juno"]'
+HUDDLE_URL="http://localhost:51820/api/huddle"
+PARTICIPANTS='["fable","felix","rio","dante","hana","kirby","juno"]'
 
 curl -s -X POST "$HUDDLE_URL" \
     -H "Content-Type: application/json" \
-    -d "{\"action\":\"start\",\"host\":\"gunnar\",\"participants\":$PARTICIPANTS}" \
+    -d "{\"action\":\"start\",\"host\":\"fable\",\"participants\":$PARTICIPANTS,\"project\":\"Honeybloom\"}" \
     > /dev/null 2>&1

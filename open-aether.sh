@@ -6,7 +6,7 @@
 # @raycast.mode silent
 
 MINI_IP="192.168.0.186"
-AETHER_URL="http://${MINI_IP}:51730"
+AETHER_URL="http://${MINI_IP}:51820"
 SSH_CMD="ssh -T -o BatchMode=yes -i /Users/d.patnaik/.ssh/id_hanover -o StrictHostKeyChecking=no -o ConnectTimeout=3 deepak-macmini@${MINI_IP}"
 
 # Restart Aether via launchd (kill + auto-revive via KeepAlive)
