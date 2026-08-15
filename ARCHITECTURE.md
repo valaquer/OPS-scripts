@@ -219,14 +219,18 @@ bear-watcher.py
   ├── reads: Mini local Bear DB (tag resolution -- interactive sessions only, TCC blocks launchd)
   ├── reads: iMac frontmost app via SSH (session batching trigger)
   ├── reads/consumes: write ledger (/var/tmp/bear-write-ledger.json) for attribution
-  ├── reads: Aether /api/rooms (tag routing -- project > team > person)
+  ├── reads: ORG.md (routing -- project rooms, teams, teammates, project owners; cached with mtime)
+  ├── reads: Aether /api/rooms (huddle room resolution)
+  ├── reads: Aether /api/messages (consecutive notification dedup)
   ├── POSTs: Aether /api/message (change notifications)
+  ├── post-flush burst: 60s window, 0.5s polls after focus switch (catches Bear late saves)
   └── managed by: launchd (com.honeybloom.bear-watcher, KeepAlive, /usr/bin/python3)
 
 mcp-bear/server.py
   ├── 6 tools: bear_read, bear_list, bear_write, bear_create, bear_edit, bear_delete
   ├── reads: iMac Bear DB via SSH (bear_read, bear_list)
-  ├── writes: iMac Bear via SSH x-callback-url (bear_write, bear_create, bear_edit, bear_delete)
+  ├── writes: iMac Bear via SSH x-callback-url with -g flag (bear_write, bear_create, bear_edit, bear_delete)
+  ├── bear_create: checks for existing title before creating (duplicate prevention)
   ├── writes: write ledger (/var/tmp/bear-write-ledger.json) for attribution
   ├── dedicated venv: mcp-bear/.venv (Python 3.14, MCP v1.x -- v2 dropped fastmcp)
   └── registered in: all 23 teammates' .mcp.json (mcpServers.honeybloom-bear)
@@ -268,7 +272,7 @@ Medusa handles 3 functions natively via OpenCode's plugin system:
 
 | Source | Read By | Purpose |
 |--------|---------|---------|
-| ORG.md (`library/wiki/Organization/ORG.md`) | kitty-open-teammate.sh, close-tabs.py, failover scripts, reminder-agent.sh | Roster + Groups SSoT |
+| ORG.md (`library/wiki/Organization/ORG.md`) | kitty-open-teammate.sh, close-tabs.py, failover scripts, reminder-agent.sh, bear-watcher.py | Roster + Groups + Projects SSoT (watcher: tag routing, project ownership) |
 | `janus-config.csv` | kitty-open-teammate.sh, close-tabs.py, failover scripts, Aether | Harness, model, machine routing |
 | Aether API (localhost:51820 or LAN IP) | aether-relay.sh, reminder-agent.sh, kitty-open-teammate.sh, close-tabs.py, bear-watcher.py | Room resolution, tool activity, pulse, activate/deactivate, change notifications |
 | macOS Keychain | kitty-open-teammate.sh, mini-launch.sh, vault.py, safe.sh | Passwords and encryption keys |
