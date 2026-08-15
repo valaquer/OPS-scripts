@@ -70,6 +70,17 @@ def log_write(uid: str, teammate: str):
         pass
 
 
+def find_note_by_title(title: str) -> "str | None":
+    """Find a note by exact title (case-insensitive). Returns UID or None."""
+    safe_title = title.replace("'", "''")
+    sql = f"SELECT ZUNIQUEIDENTIFIER FROM ZSFNOTE WHERE ZTITLE = '{safe_title}' COLLATE NOCASE AND ZTRASHED = 0 LIMIT 1"
+    try:
+        output = ssh_query(sql).strip()
+        return output if output else None
+    except Exception:
+        return None
+
+
 @mcp.tool()
 def bear_read(title: str = "", uid: str = "") -> str:
     """Read a Bear note by title or unique identifier.
@@ -167,13 +178,22 @@ def bear_write(uid: str, text: str, mode: str = "append") -> str:
 
 @mcp.tool()
 def bear_create(title: str, text: str = "", tag: str = "") -> str:
-    """Create a new Bear note via x-callback-url.
+    """Create a new Bear note via x-callback-url. If a note with the same title
+    already exists, appends to it instead of creating a duplicate.
 
     Args:
         title: Note title
         text: Note content
         tag: Tag to apply (e.g. 'manhattan')
     """
+    existing_uid = find_note_by_title(title)
+    if existing_uid:
+        if not text:
+            return f"Note '{title}' already exists (id: {existing_uid}). No text to append."
+        result = bear_write(existing_uid, text, mode="append")
+        tag_note = f" Tag '{tag}' not applied -- check existing note's tags." if tag else ""
+        return f"Note '{title}' already exists -- appended to existing note (id: {existing_uid}).{tag_note}"
+
     params = {"title": title}
     if text:
         params["text"] = text
