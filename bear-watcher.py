@@ -14,6 +14,7 @@ import sqlite3
 import json
 import time
 import urllib.request
+import urllib.parse
 import os
 import sys
 
@@ -40,7 +41,7 @@ PROJECT_ROOMS = ["manhattan", "onyx", "rev", "spark", "lighthouse", "honeybloom"
 TEAM_HOSTS = {
     "ops": "rio",
     "studio": "dante",
-    "re-team": "hana",
+    "chat": "hana",
     "marketing": "kirby",
     "intel": "juno",
     "finance": "felix",
@@ -181,8 +182,27 @@ def attribute_change(uid: str) -> str:
     return "Boss"
 
 
+def should_suppress(room: str, title: str) -> bool:
+    """Check if the last message in the room is an identical Bear notification."""
+    try:
+        url = f"{AETHER_URL}/api/messages?room={urllib.parse.quote(room, safe='')}&limit=1"
+        req = urllib.request.urlopen(url, timeout=3)
+        msgs = json.loads(req.read())
+        if msgs and isinstance(msgs, list) and len(msgs) > 0:
+            last = msgs[0]
+            if last.get("sender") == "system" and f"edited the **{title}** note" in last.get("content", ""):
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def post_to_aether(room: str, author: str, title: str) -> None:
-    """Post a change notification to Aether."""
+    """Post a change notification to Aether, suppressing consecutive duplicates."""
+    if should_suppress(room, title):
+        log(f"Suppressed duplicate: {author} edited {title} -> {room}")
+        return
+
     payload = json.dumps({
         "sender": "system",
         "body": f"{author} edited the **{title}** note in the Bear app.",
