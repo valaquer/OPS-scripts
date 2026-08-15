@@ -21,6 +21,7 @@ import sys
 POLL_INTERVAL = 2
 AETHER_URL = "http://localhost:51820"
 WRITE_LEDGER_PATH = "/var/tmp/bear-write-ledger.json"
+ORG_PATH = "/Users/deepak-macmini/honeybloom/library/wiki/Organization/ORG.md"
 
 IMAC_SSH_OPTS = [
     "ssh",
@@ -37,21 +38,83 @@ MINI_BEAR_DB = os.path.expanduser(
     "~/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data/database.sqlite"
 )
 
-PROJECT_ROOMS = ["manhattan", "onyx", "rev", "spark", "lighthouse", "honeybloom"]
-TEAM_HOSTS = {
-    "ops": "rio",
-    "studio": "dante",
-    "chat": "hana",
-    "marketing": "kirby",
-    "intel": "juno",
-    "finance": "felix",
-}
-TEAMMATES = [
-    "gunnar", "fable", "felix", "jake", "rio", "chica", "natalie",
-    "dante", "sierra", "cindy", "hana", "klara", "wyatt", "kirby",
-    "ananya", "nora", "andrea", "juno", "pike", "jukka", "claire",
-    "burt", "jeh",
-]
+import re
+
+_org_cache: "dict | None" = None
+_org_mtime: float = 0
+
+
+def load_org_data() -> dict:
+    """Parse ORG.md for routing data. Cached, re-read on mtime change."""
+    global _org_cache, _org_mtime
+    try:
+        mtime = os.path.getmtime(ORG_PATH)
+        if _org_cache and mtime == _org_mtime:
+            return _org_cache
+    except OSError:
+        if _org_cache:
+            return _org_cache
+        return {"teammates": [], "team_hosts": {}, "project_rooms": [], "project_owners": {}}
+
+    teammates = []
+    team_hosts = {}
+    project_rooms = []
+    project_owners = {}
+
+    try:
+        with open(ORG_PATH) as f:
+            content = f.read()
+    except OSError:
+        return {"teammates": [], "team_hosts": {}, "project_rooms": [], "project_owners": {}}
+
+    section = ""
+    current_leader = ""
+
+    for line in content.split("\n"):
+        stripped = line.strip()
+
+        if stripped.startswith("## ") and not stripped.startswith("### "):
+            section = stripped[3:].strip().lower()
+            continue
+
+        if section == "roster" and stripped.startswith("Teammate:"):
+            name = stripped.split(":", 1)[1].strip().lower()
+            if name:
+                teammates.append(name)
+
+        elif section == "sidebar order" and ":" in stripped and not stripped.startswith("#"):
+            parts = stripped.split(":", 1)
+            team_label = parts[0].strip().lower()
+            members = [m.strip().lower() for m in parts[1].split(",")]
+            if members:
+                team_hosts[team_label] = members[0]
+
+        elif section == "active project rooms in aether" and stripped.startswith("- "):
+            entry = stripped[2:].strip()
+            name = entry.split(":")[0].strip().lower()
+            if name:
+                project_rooms.append(name)
+
+        elif section == "projects":
+            if stripped.startswith("### "):
+                m = re.match(r"### .+\((\w+)\)", stripped)
+                if m:
+                    current_leader = m.group(1).lower()
+            elif stripped.startswith("- **") and current_leader:
+                m = re.match(r"- \*\*(.+?)\*\*", stripped)
+                if m:
+                    proj = m.group(1).strip().lower()
+                    if proj not in project_owners:
+                        project_owners[proj] = current_leader
+
+    _org_cache = {
+        "teammates": teammates,
+        "team_hosts": team_hosts,
+        "project_rooms": project_rooms,
+        "project_owners": project_owners,
+    }
+    _org_mtime = mtime
+    return _org_cache
 
 
 def query_imac_mods() -> dict[str, tuple[str, str]]:
@@ -112,18 +175,29 @@ def get_tags_for_note(uid: str) -> list[str]:
 
 
 def resolve_room(tags: list[str]) -> "str | None":
-    """Route notification based on tag priority: project > team > person."""
-    for project in PROJECT_ROOMS:
+    """Route notification based on tag priority: project room > team > person > project owner."""
+    org = load_org_data()
+
+    for project in org["project_rooms"]:
         if project in tags:
             return get_huddle_room(project, "work")
 
-    for team, host in TEAM_HOSTS.items():
+    for team, host in org["team_hosts"].items():
         if team in tags:
             return get_huddle_room(host, "team")
 
-    for name in TEAMMATES:
+    for name in org["teammates"]:
         if name in tags:
             return f"direct-{name}"
+
+    for tag in tags:
+        parent = tag.split("/")[0].lower()
+        leader = org["project_owners"].get(parent)
+        if leader:
+            room = get_huddle_room(leader, "team")
+            if room:
+                return room
+            return f"direct-{leader}"
 
     return None
 
