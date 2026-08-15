@@ -270,6 +270,57 @@ def main():
                 clear_ledger_entries(ledger_uids)
             pending_changes.clear()
 
+            log("Post-flush burst: polling for late saves (60s, 0.5s interval)")
+            quiet_count = 0
+            burst_start = time.time()
+            while time.time() - burst_start < 60:
+                time.sleep(0.5)
+
+                if is_bear_frontmost():
+                    log("Bear re-opened during burst -- aborting, resuming batching")
+                    break
+
+                burst_mods = query_imac_mods()
+                if not burst_mods:
+                    quiet_count += 1
+                    if quiet_count >= 10:
+                        log("Post-flush burst: 5s quiet -- exiting early")
+                        break
+                    continue
+
+                new_changes = False
+                for uid, (mod, title) in burst_mods.items():
+                    prev = last_mods.get(uid)
+                    if prev is not None and mod != prev:
+                        pending_changes[uid] = title
+                        log(f"Late save detected: {title}")
+                        new_changes = True
+                    last_mods[uid] = mod
+
+                if new_changes:
+                    quiet_count = 0
+                    ledger_uids = set()
+                    for uid, title in pending_changes.items():
+                        tags = get_tags_for_note(uid)
+                        room = resolve_room(tags) if tags else None
+                        if room:
+                            author = attribute_change(uid)
+                            post_to_aether(room, author, title)
+                            log(f"Posted (late): {author} edited {title} -> {room}")
+                            ledger_uids.add(uid)
+                        else:
+                            log(f"No route for {title} (tags={tags})")
+                    if ledger_uids:
+                        clear_ledger_entries(ledger_uids)
+                    pending_changes.clear()
+                else:
+                    quiet_count += 1
+                    if quiet_count >= 10:
+                        log("Post-flush burst: 5s quiet -- exiting early")
+                        break
+
+            bear_front = is_bear_frontmost()
+
         if not bear_front and pending_changes and not was_bear_frontmost:
             log(f"Immediate flush: {len(pending_changes)} changes (Bear not frontmost)")
             ledger_uids = set()
