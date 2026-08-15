@@ -230,7 +230,7 @@ mcp-bear/server.py
   ├── 6 tools: bear_read, bear_list, bear_write, bear_create, bear_edit, bear_delete
   ├── reads: iMac Bear DB via SSH (bear_read, bear_list)
   ├── writes: iMac Bear via SSH x-callback-url with -g flag (bear_write, bear_create, bear_edit, bear_delete)
-  ├── bear_create: checks for existing title before creating (duplicate prevention)
+  ├── bear_create: checks for existing title before creating (duplicate prevention, fcntl file lock)
   ├── writes: write ledger (/var/tmp/bear-write-ledger.json) for attribution
   ├── dedicated venv: mcp-bear/.venv (Python 3.14, MCP v1.x -- v2 dropped fastmcp)
   └── registered in: all 23 teammates' .mcp.json (mcpServers.honeybloom-bear)
