@@ -161,7 +161,7 @@ def bear_write(uid: str, text: str, mode: str = "append") -> str:
 
     try:
         result = subprocess.run(
-            ["ssh", "-o", "ConnectTimeout=3", "-o", "BatchMode=yes", "imac", f"open '{url}'"],
+            ["ssh", "-o", "ConnectTimeout=3", "-o", "BatchMode=yes", "imac", f"open -g '{url}'"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
@@ -205,7 +205,7 @@ def bear_create(title: str, text: str = "", tag: str = "") -> str:
 
     try:
         result = subprocess.run(
-            ["ssh", "-o", "ConnectTimeout=3", "-o", "BatchMode=yes", "imac", f"open '{url}'"],
+            ["ssh", "-o", "ConnectTimeout=3", "-o", "BatchMode=yes", "imac", f"open -g '{url}'"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
@@ -227,7 +227,7 @@ def bear_delete(uid: str) -> str:
     url = f"bear://x-callback-url/trash?id={uid}"
     try:
         result = subprocess.run(
-            IMAC_SSH_OPTS + [f"open '{url}'"],
+            IMAC_SSH_OPTS + [f"open -g '{url}'"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
@@ -264,7 +264,7 @@ def bear_edit(uid: str, old_text: str, new_text: str) -> str:
         url = f"bear://x-callback-url/add-text?id={uid}&text={encoded}&mode=replace_all"
 
         result = subprocess.run(
-            IMAC_SSH_OPTS + [f"open '{url}'"],
+            IMAC_SSH_OPTS + [f"open -g '{url}'"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
