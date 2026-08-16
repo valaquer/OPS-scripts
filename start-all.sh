@@ -89,7 +89,7 @@ start_huddle juno juno pike jukka claire
 sleep 10
 
 # --- Strategy (Gunnar solo) + Leadership (Honeybloom work huddle) ---
-start_huddle gunnar gunnar
+start_huddle gunnar gunnar fable felix rio dante hana kirby juno
 
 start_work_huddle() {
     local host="$1"
