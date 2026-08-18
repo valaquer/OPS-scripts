@@ -42,8 +42,8 @@ else
 fi
 
 
-# Filter out honeybloom-huddle MCP calls -- basic communication, not activity worth mirroring
-[[ "$TOOL_NAME" == *honeybloom-huddle* || "$TOOL_NAME" == *honeybloom_huddle* ]] && exit 0
+# Filter out all MCP tool calls -- not activity worth mirroring
+[[ "$TOOL_NAME" == mcp__* ]] && exit 0
 
 # FP-12 Credential Relay filter — line-level redaction for sensitive file paths and raw keys
 # Keychain subshell expansion is the primary defense. This filter redacts matching lines, not entire cards.
