@@ -334,8 +334,8 @@ def main():
                 room = resolve_room(tags) if tags else None
                 if room:
                     author = attribute_change(uid)
-                    post_to_aether(room, author, title)
-                    log(f"Posted: {author} edited {title} -> {room}")
+                    # post_to_aether(room, author, title)
+                    log(f"Detected: {author} edited {title} -> {room}")
                     ledger_uids.add(uid)
                 else:
                     log(f"No route for {title} (tags={tags})")
@@ -379,8 +379,8 @@ def main():
                         room = resolve_room(tags) if tags else None
                         if room:
                             author = attribute_change(uid)
-                            post_to_aether(room, author, title)
-                            log(f"Posted (late): {author} edited {title} -> {room}")
+                            # post_to_aether(room, author, title)
+                            log(f"Detected (late): {author} edited {title} -> {room}")
                             ledger_uids.add(uid)
                         else:
                             log(f"No route for {title} (tags={tags})")
@@ -403,8 +403,8 @@ def main():
                 room = resolve_room(tags) if tags else None
                 if room:
                     author = attribute_change(uid)
-                    post_to_aether(room, author, title)
-                    log(f"Posted: {author} edited {title} -> {room}")
+                    # post_to_aether(room, author, title)
+                    log(f"Detected: {author} edited {title} -> {room}")
                     ledger_uids.add(uid)
                 else:
                     log(f"No route for {title} (tags={tags})")

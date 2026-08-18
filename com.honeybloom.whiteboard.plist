@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.honeybloom.whiteboard</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/Users/deepak-macmini/honeybloom/library/scripts/whiteboard-server.sh</string>
+	</array>
+	<key>UserName</key>
+	<string>deepak-macmini</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/var/tmp/whiteboard-server.log</string>
+	<key>StandardErrorPath</key>
+	<string>/var/tmp/whiteboard-server.log</string>
+</dict>
+</plist>

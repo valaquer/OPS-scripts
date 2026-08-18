@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.honeybloom.whiteboard-watcher</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/bin/python3</string>
+		<string>/Users/deepak-macmini/honeybloom/library/scripts/whiteboard-watcher.py</string>
+	</array>
+	<key>UserName</key>
+	<string>deepak-macmini</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/var/tmp/whiteboard-watcher.log</string>
+	<key>StandardErrorPath</key>
+	<string>/var/tmp/whiteboard-watcher.log</string>
+</dict>
+</plist>
