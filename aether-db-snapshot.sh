@@ -14,7 +14,7 @@ LOG="/var/tmp/aether-db-snapshot.log"
 HOMEDIR="/Users/deepak-macmini/honeybloom"
 
 mkdir -p "$SNAPSHOT_DIR"
-mkdir -p "$BACKUP_ROOT"/{aether-db,houston-db,manhattan-db,stuttgart-db,felix-safe,bavaria-assets,watermark-infra,sierra-venv}
+mkdir -p "$BACKUP_ROOT"/{aether-db,houston-db,manhattan-db,stuttgart-db,bear-db,felix-safe,bavaria-assets,watermark-infra,sierra-venv}
 
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 TODAY=$(date +%Y%m%d)
@@ -85,6 +85,22 @@ if ! ls "$BACKUP_ROOT"/aether-db/aether-"$TODAY"-*.sql.gz.enc 1>/dev/null 2>&1; 
         rm -f "$MANHATTAN_DUMP"
         find "$BACKUP_ROOT/manhattan-db" -name "*.gz.enc" -mtime +14 -delete 2>/dev/null
     fi
+
+    # Bear DB (SSH dump from iMac -- if-guard isolates SSH failures)
+    BEAR_DUMP=$(mktemp)
+    if ssh -o ConnectTimeout=5 -o BatchMode=yes imac 'sqlite3 ~/Library/Group\ Containers/9K33E3U3T4.net.shinyfrog.bear/Application\ Data/database.sqlite ".dump"' > "$BEAR_DUMP" 2>>"$LOG"; then
+        DUMP_SIZE=$(stat -f%z "$BEAR_DUMP" 2>/dev/null || echo "0")
+        if [ "$DUMP_SIZE" -gt 100 ]; then
+            encrypt_file "$BEAR_DUMP" "$BACKUP_ROOT/bear-db/bear-$TIMESTAMP.sql.gz.enc" && \
+                echo "$(date): Bear DB backed up ($DUMP_SIZE bytes dump)" >> "$LOG"
+        else
+            echo "$(date): Bear DB dump too small ($DUMP_SIZE bytes), skipping" >> "$LOG"
+        fi
+    else
+        echo "$(date): Bear DB SSH dump failed" >> "$LOG"
+    fi
+    rm -f "$BEAR_DUMP"
+    find "$BACKUP_ROOT/bear-db" -name "*.gz.enc" -mtime +14 -delete 2>/dev/null
 
     # Stuttgart DB (when created)
     if [ -f "$HOMEDIR/library/stuttgart-app/stuttgart.db" ]; then
