@@ -17,7 +17,7 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
     "${SUPABASE_URL}/storage/v1/bucket" \
     -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
     --connect-timeout 10 \
-    --max-time 30) || true
+    --max-time 30)
 CURL_EXIT=$?
 
 if [ "$CURL_EXIT" -ne 0 ] || [ "$STATUS" = "000" ]; then
