@@ -13,6 +13,7 @@ import json
 import os
 import sqlite3
 import subprocess
+import time
 import urllib.parse
 from mcp.server.fastmcp import FastMCP
 
@@ -176,21 +177,50 @@ def bear_create(title: str, text: str = "", tag: str = "") -> str:
         tag: Tag to apply (e.g. 'manhattan')
     """
     params = {"title": title}
-    if text:
-        params["text"] = text
     if tag:
         params["tags"] = tag
 
     query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
-    url = f"bear://x-callback-url/create?{query}"
+    create_url = f"bear://x-callback-url/create?{query}"
 
     try:
         result = subprocess.run(
-            ["ssh", "-o", "ConnectTimeout=3", "-o", "BatchMode=yes", "imac", f"open -g '{url}'"],
+            IMAC_SSH_OPTS + [f"open -g '{create_url}'"],
             capture_output=True, text=True, timeout=10,
         )
         if result.returncode != 0:
             return f"Create failed: {result.stderr.strip()}"
+
+        if text:
+            safe_title = title.replace("'", "''")
+            uid = None
+            for _ in range(3):
+                time.sleep(0.3)
+                sql = (
+                    f"SELECT ZUNIQUEIDENTIFIER FROM ZSFNOTE "
+                    f"WHERE ZTITLE = '{safe_title}' AND ZTRASHED = 0 "
+                    f"AND ZCREATIONDATE > (strftime('%s', 'now') - 978307200 - 5) "
+                    f"ORDER BY ZCREATIONDATE DESC LIMIT 1"
+                )
+                uid_output = ssh_query(sql).strip()
+                if uid_output:
+                    uid = uid_output.split("|")[0].strip()
+                    break
+            if not uid:
+                return f"Note '{title}' created but body write failed: could not find note UID within timeout."
+
+            encoded_text = urllib.parse.quote(text, safe="")
+            write_url = f"bear://x-callback-url/add-text?id={uid}&text={encoded_text}&mode=append&open_note=no"
+            result = subprocess.run(
+                IMAC_SSH_OPTS + [f"open -g '{write_url}'"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0:
+                return f"Note '{title}' created but body write failed: {result.stderr.strip()}"
+
+            teammate = get_teammate_name()
+            log_write(uid, teammate)
+
         return f"Note '{title}' created."
     except subprocess.TimeoutExpired:
         return "Create failed: SSH timeout."
