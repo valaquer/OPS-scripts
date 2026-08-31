@@ -138,7 +138,7 @@ ECB_URL = "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?form
 def load_bear_config():
     cfg = {}
 
-    note = read_bear_note("Acorn Config -- ISIN Classifications")
+    note = read_bear_note("ISIN Classifications")
     rows = parse_bear_table(note)
     fund_isins = {}
     for r in rows:
@@ -151,7 +151,7 @@ def load_bear_config():
             }
     cfg["fund_isins"] = fund_isins
 
-    note = read_bear_note("Acorn Config -- Fund Parameters")
+    note = read_bear_note("Fund Parameters")
     kv = parse_bear_kv(note)
     basiszins = {}
     for key, val in kv.items():
@@ -193,7 +193,7 @@ def load_bear_config():
     cfg["fictional_disposal"] = fd_data
     cfg["old_invstg"] = old_invstg
 
-    note = read_bear_note("Acorn Config -- Interest and Surcharges")
+    note = read_bear_note("Interest and Surcharges")
     kv = parse_bear_kv(note)
     cfg["rate_233a"] = float(kv.get("§233a Rate", "1.8")) / 100
     cfg["rate_235"] = float(kv.get("§235 Rate", "6.0")) / 100
@@ -223,7 +223,7 @@ def load_bear_config():
     kv2 = parse_bear_kv(note)
     cfg["payment_date"] = kv2.get("Payment Date", "2026-10-01")
 
-    note = read_bear_note("Acorn Config -- Tax Formulas")
+    note = read_bear_note("Tax Formulas")
     tax_rows = parse_bear_table(note)
     tariffs = {}
     soli_freigrenze = {}
@@ -261,7 +261,7 @@ def load_bear_config():
     cfg["sparer_pb"] = sparer_pb
     cfg["milderungszone"] = milderungszone
 
-    note = read_bear_note("Acorn Config -- Bescheid Baselines")
+    note = read_bear_note("Bescheid Baselines")
     bescheid_rows = parse_bear_table(note)
     bescheide = {}
     for r in bescheid_rows:
@@ -275,7 +275,7 @@ def load_bear_config():
         }
     cfg["bescheide"] = bescheide
 
-    note = read_bear_note("Acorn Config -- India Interest")
+    note = read_bear_note("India Interest")
     india_rows = parse_bear_table(note)
     india = {}
     for r in india_rows:
@@ -1073,7 +1073,7 @@ def main():
               f"{len(CFG.get('bescheide', {}))} Bescheide", file=sys.stderr)
     except Exception as e:
         print(f"ERROR: Failed to load Bear config: {e}", file=sys.stderr)
-        print("Ensure all Acorn Config notes exist in Bear under #acorn/selbstanzeige/config#", file=sys.stderr)
+        print("Ensure all config notes exist in Bear under #acorn/selbstanzeige/config#", file=sys.stderr)
         sys.exit(1)
 
     txns = load_transactions(TRANSACTIONS_CSV)
