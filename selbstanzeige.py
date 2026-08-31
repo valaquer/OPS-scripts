@@ -43,9 +43,19 @@ def bear_ssh_query(sql: str) -> str:
     return result.stdout
 
 
-def read_bear_note(title: str) -> str:
+def read_bear_note(title: str, tag: str = "") -> str:
     safe_title = title.replace("'", "''")
-    sql = f"SELECT ZTEXT FROM ZSFNOTE WHERE ZTITLE = '{safe_title}' AND ZTRASHED = 0"
+    if tag:
+        tag_leaf = tag.rstrip("#").split("/")[-1].replace("'", "''")
+        sql = (
+            f"SELECT n.ZTEXT FROM ZSFNOTE n "
+            f"JOIN Z_5TAGS nt ON n.Z_PK = nt.Z_5NOTES "
+            f"JOIN ZSFNOTETAG t ON t.Z_PK = nt.Z_13TAGS "
+            f"WHERE n.ZTITLE = '{safe_title}' AND t.ZTITLE LIKE '%{tag_leaf}%' "
+            f"AND n.ZTRASHED = 0 LIMIT 1"
+        )
+    else:
+        sql = f"SELECT ZTEXT FROM ZSFNOTE WHERE ZTITLE = '{safe_title}' AND ZTRASHED = 0"
     output = bear_ssh_query(sql)
     if not output.strip():
         raise ValueError(f"Bear config note not found: '{title}'")
@@ -138,7 +148,7 @@ ECB_URL = "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A?form
 def load_bear_config():
     cfg = {}
 
-    note = read_bear_note("ISIN Classifications")
+    note = read_bear_note("ISIN Classifications", "acorn/selbstanzeige/config")
     rows = parse_bear_table(note)
     fund_isins = {}
     for r in rows:
@@ -151,7 +161,7 @@ def load_bear_config():
             }
     cfg["fund_isins"] = fund_isins
 
-    note = read_bear_note("Fund Parameters")
+    note = read_bear_note("Fund Parameters", "acorn/selbstanzeige/config")
     kv = parse_bear_kv(note)
     basiszins = {}
     for key, val in kv.items():
@@ -193,7 +203,7 @@ def load_bear_config():
     cfg["fictional_disposal"] = fd_data
     cfg["old_invstg"] = old_invstg
 
-    note = read_bear_note("Interest and Surcharges")
+    note = read_bear_note("Interest and Surcharges", "acorn/selbstanzeige/config")
     kv = parse_bear_kv(note)
     cfg["rate_233a"] = float(kv.get("§233a Rate", "1.8")) / 100
     cfg["rate_235"] = float(kv.get("§235 Rate", "6.0")) / 100
@@ -223,7 +233,7 @@ def load_bear_config():
     kv2 = parse_bear_kv(note)
     cfg["payment_date"] = kv2.get("Payment Date", "2026-10-01")
 
-    note = read_bear_note("Tax Formulas")
+    note = read_bear_note("Tax Formulas", "acorn/selbstanzeige/config")
     tax_rows = parse_bear_table(note)
     tariffs = {}
     soli_freigrenze = {}
@@ -261,7 +271,7 @@ def load_bear_config():
     cfg["sparer_pb"] = sparer_pb
     cfg["milderungszone"] = milderungszone
 
-    note = read_bear_note("Bescheid Baselines")
+    note = read_bear_note("Bescheid Baselines", "acorn/selbstanzeige/config")
     bescheid_rows = parse_bear_table(note)
     bescheide = {}
     for r in bescheid_rows:
@@ -275,7 +285,7 @@ def load_bear_config():
         }
     cfg["bescheide"] = bescheide
 
-    note = read_bear_note("India Interest")
+    note = read_bear_note("India Interest", "acorn/selbstanzeige/config")
     india_rows = parse_bear_table(note)
     india = {}
     for r in india_rows:
@@ -284,6 +294,7 @@ def load_bear_config():
             india[year] = {
                 "interest_eur": float(r.get("Interest EUR", "0")),
                 "tds_eur": float(r.get("TDS EUR", "0")),
+                "sundaram_eur": float(r.get("Sundaram EUR", "0")),
             }
     cfg["india"] = india
 
@@ -725,7 +736,25 @@ def compute_guenstigerpruefung(
 def compute_tax_for_year(year: int, kap_summary: dict) -> dict:
     bescheid = CFG.get("bescheide", {}).get(year)
     if not bescheid:
-        return {"year": year, "error": f"No Bescheid baseline for {year}"}
+        sparer_pb = CFG.get("sparer_pb", {}).get(year, 0)
+        india_data = CFG.get("india", {}).get(year, {})
+        india_interest = india_data.get("interest_eur", 0)
+        sundaram_deemed = india_data.get("sundaram_eur", 0)
+        est_kap = kap_summary.get("fund_taxable", 0) + max(0, kap_summary.get("stock_taxable", 0)) + india_interest + sundaram_deemed
+        if est_kap >= sparer_pb:
+            return {"year": year, "error": f"No Bescheid baseline for {year} and KapErträge EUR {est_kap:.2f} >= SparerPB EUR {sparer_pb:.2f} -- cannot compute without Bescheid"}
+        return {
+            "year": year, "tarif": "Grundtarif", "bescheid": {"zve": 0, "est": 0, "soli": 0},
+            "kapitalertraege": round(est_kap, 2), "india_interest": round(india_interest, 2),
+            "india_tds": round(india_data.get("tds_eur", 0), 2), "india_dba_credit": 0,
+            "sundaram_deemed": round(sundaram_deemed, 2), "sparer_pb": sparer_pb,
+            "chosen_path": "below_sparerpb", "reasoning": f"KapErträge EUR {est_kap:.2f} < SparerPB EUR {sparer_pb:.2f}",
+            "mehrsteuern_est": 0, "mehrsteuern_soli": 0, "mehrsteuern_total": 0,
+            "net_mehrsteuern": 0, "zinsen_credit": {"total_interest": 0},
+            "s398a": {"surcharge": 0, "applies": False}, "year_total": 0,
+            "stock_taxable": kap_summary.get("stock_taxable", 0),
+            "fund_taxable": kap_summary.get("fund_taxable", 0),
+        }
 
     tarif = bescheid.get("tarif", "Splittingtarif")
 
@@ -736,7 +765,8 @@ def compute_tax_for_year(year: int, kap_summary: dict) -> dict:
     india_data = CFG.get("india", {}).get(year, {})
     india_interest = india_data.get("interest_eur", 0)
     india_tds = india_data.get("tds_eur", 0)
-    total_kapitalertraege += india_interest
+    sundaram_deemed = india_data.get("sundaram_eur", 0)
+    total_kapitalertraege += india_interest + sundaram_deemed
 
     sparer_pb = CFG.get("sparer_pb", {}).get(year, 0)
 
@@ -778,6 +808,7 @@ def compute_tax_for_year(year: int, kap_summary: dict) -> dict:
         "india_interest": round(india_interest, 2),
         "india_tds": round(india_tds, 2),
         "india_dba_credit": round(india_dba_credit, 2),
+        "sundaram_deemed": round(sundaram_deemed, 2),
         "sparer_pb": sparer_pb,
         "abgelt": abgelt,
         "guenstiger": guenstiger,
@@ -907,7 +938,8 @@ def compute_year_total(year: int, kap_summary: dict) -> dict:
 
 # ── Module 10: Bear Output Writer ──
 
-OUTPUT_TAG = "acorn/selbstanzeige/supplementary tax filing"
+CALC_TAG = "acorn/selbstanzeige/calculations"
+REPORT_TAG = "acorn/selbstanzeige/final reports"
 
 
 def write_year_note(year_result: dict):
@@ -920,7 +952,7 @@ def write_year_note(year_result: dict):
 
     if "error" in year_result:
         lines.append(f"**Error:** {year_result['error']}")
-        bear_write_note(title, "\n".join(lines), OUTPUT_TAG)
+        bear_write_note(title, "\n".join(lines), CALC_TAG)
         return
 
     b = year_result["bescheid"]
@@ -1001,7 +1033,7 @@ def write_year_note(year_result: dict):
     lines.append(f"**§398a surcharge:** EUR {s398a['surcharge']:,.2f}")
     lines.append(f"**Year total:** EUR {year_result['year_total']:,.2f}")
 
-    bear_write_note(title, "\n".join(lines), OUTPUT_TAG)
+    bear_write_note(title, "\n".join(lines), CALC_TAG)
     print(f"  Bear note written: {title}", file=sys.stderr)
 
 
@@ -1037,7 +1069,42 @@ def write_summary_note(year_results: list[dict]):
     lines.append("**Sources:** All figures traceable to DEGIRO CSVs (FIFO engine), ECB daily rates, "
                   "scanned Bescheide, and Bear config notes under #acorn/selbstanzeige/config#.")
 
-    bear_write_note(title, "\n".join(lines), OUTPUT_TAG)
+    bear_write_note(title, "\n".join(lines), REPORT_TAG)
+    print(f"  Bear note written: {title}", file=sys.stderr)
+
+
+def write_detailed_summary(year_results: list[dict]):
+    title = "Selbstanzeige -- Detailed Summary"
+    lines = []
+    lines.append("### Detailed Summary Table")
+    lines.append("")
+    lines.append("| Year | India | DEGIRO Stocks | DEGIRO Funds | Dividends | TF Effect | Gross KapErträge | SparerPB | Taxable | Mehrsteuern | Interest | Payable |")
+    lines.append("|------|-------|--------------|-------------|-----------|-----------|-----------------|----------|---------|------------|---------|---------|")
+
+    grand_total = 0
+    for yr in year_results:
+        if "error" in yr:
+            lines.append(f"| {yr['year']} | ERROR | | | | | | | | | | |")
+            continue
+        india = yr.get("india_interest", 0) + yr.get("sundaram_deemed", 0)
+        stocks = max(0, yr.get("stock_taxable", 0))
+        funds = yr.get("fund_taxable", 0)
+        divs = yr.get("dividends_eur", 0)
+        tf = yr.get("tf_effect", 0)
+        gross = yr.get("kapitalertraege", 0)
+        spb = yr.get("sparer_pb", 0)
+        taxable = max(0, gross - spb)
+        mt = max(0, yr.get("net_mehrsteuern", 0))
+        interest = yr.get("zinsen_credit", {}).get("total_interest", 0)
+        payable = yr.get("year_total", 0)
+        grand_total += payable
+        lines.append(f"| {yr['year']} | {india:.2f} | {stocks:.2f} | {funds:.2f} | {divs:.2f} | {tf:.2f} | {gross:.2f} | {spb:.2f} | {taxable:.2f} | {mt:.2f} | {interest:.2f} | {payable:.2f} |")
+
+    lines.append(f"| **Total** | | | | | | | | | | | **{grand_total:.2f}** |")
+    lines.append("")
+    lines.append(f"**Grand total payable:** EUR {grand_total:,.2f}")
+
+    bear_write_note(title, "\n".join(lines), REPORT_TAG)
     print(f"  Bear note written: {title}", file=sys.stderr)
 
 
@@ -1051,7 +1118,7 @@ def write_input_data_note(all_gains: list[dict], dividends: list[dict], ecb_rate
     lines.append(f"**ECB rates used:** {len(ecb_rates_used)} dates")
     lines.append("")
     lines.append("See selbstanzeige.py stdout output for full per-year Anlage KAP/KAP-INV figures.")
-    bear_write_note(title, "\n".join(lines), OUTPUT_TAG)
+    bear_write_note(title, "\n".join(lines), CALC_TAG)
     print(f"  Bear note written: {title}", file=sys.stderr)
 
 
@@ -1061,7 +1128,7 @@ def main():
     global CFG
 
     print("=" * 70)
-    print("  Acorn KAPitan -- FIFO Recalculation + Tax Calculation Engine")
+    print("  Selbstanzeige -- FIFO Recalculation + Tax Calculation Engine")
     print("=" * 70)
     print()
 
@@ -1231,6 +1298,7 @@ def main():
     for result in year_results:
         write_year_note(result)
     write_summary_note(year_results)
+    write_detailed_summary(year_results)
 
     print()
     print("=" * 70)
