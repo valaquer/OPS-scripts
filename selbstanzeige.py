@@ -62,6 +62,20 @@ def read_bear_note(title: str, tag: str = "") -> str:
     return output.strip()
 
 
+def extract_section(text: str, heading: str) -> str:
+    lines = text.split("\n")
+    start = None
+    for i, line in enumerate(lines):
+        if heading.lower() in line.lower() and line.strip().startswith("#"):
+            start = i + 1
+            continue
+        if start is not None and line.strip().startswith("#"):
+            return "\n".join(lines[start:i])
+    if start is not None:
+        return "\n".join(lines[start:])
+    return ""
+
+
 def parse_bear_table(text: str) -> list[dict]:
     lines = text.strip().split("\n")
     table_lines = []
@@ -234,38 +248,38 @@ def load_bear_config():
     cfg["payment_date"] = kv2.get("Payment Date", "2026-10-01")
 
     note = read_bear_note("Tax Formulas", "acorn/selbstanzeige/config")
-    tax_rows = parse_bear_table(note)
     tariffs = {}
-    soli_freigrenze = {}
-    sparer_pb = {}
-    milderungszone = {}
-    for r in tax_rows:
-        if "GF" in r and "Year" in r:
-            year = int(r["Year"])
+    for r in parse_bear_table(extract_section(note, "32a")):
+        yr_key = "VZ" if "VZ" in r else "Year"
+        if "GF" in r and yr_key in r:
+            year = int(r[yr_key])
             tariffs[year] = {
                 "gf": float(r["GF"]),
                 "z2e": float(r["Z2E"]),
                 "z3e": float(r["Z3E"]),
                 "z4e": float(r["Z4E"]),
-                "a": float(r["a"]),
-                "b": float(r["b"]),
-                "c": float(r["c"]),
-                "d": float(r["d"]),
-                "e": float(r["e"]),
-                "r1": float(r["r1"]),
-                "f1": float(r["f1"]),
-                "r2": float(r["r2"]),
-                "f2": float(r["f2"]),
+                "z2a": float(r.get("Z2a", r.get("a", "0"))),
+                "z3a": float(r.get("Z3a", r.get("b", "0"))),
+                "z3const": float(r.get("Z3const", r.get("c", "0"))),
+                "z4const": float(r.get("Z4const", r.get("d", "0"))),
+                "z5const": float(r.get("Z5const", r.get("e", "0"))),
             }
-        if "SoliFreigrenze" in r and "Year" in r:
-            year = int(r["Year"])
+    soli_freigrenze = {}
+    milderungszone = {}
+    for r in parse_bear_table(extract_section(note, "Soli")):
+        yr_key = "VZ" if "VZ" in r else "Year"
+        if "SoliFreigrenze" in r and yr_key in r:
+            year = int(r[yr_key])
             soli_freigrenze[year] = float(r["SoliFreigrenze"])
-        if "SparerPB" in r and "Year" in r:
-            year = int(r["Year"])
+        if "Milderungszone" in r and yr_key in r:
+            year = int(r[yr_key])
+            milderungszone[year] = float(r["Milderungszone"].replace("%", "")) / 100
+    sparer_pb = {}
+    for r in parse_bear_table(extract_section(note, "Sparerpauschbetrag")):
+        yr_key = "VZ" if "VZ" in r else "Year"
+        if "SparerPB" in r and yr_key in r:
+            year = int(r[yr_key])
             sparer_pb[year] = float(r["SparerPB"])
-        if "Milderungszone" in r and "Year" in r:
-            year = int(r["Year"])
-            milderungszone[year] = float(r["Milderungszone"]) / 100
     cfg["tariffs"] = tariffs
     cfg["soli_freigrenze"] = soli_freigrenze
     cfg["sparer_pb"] = sparer_pb
@@ -663,14 +677,14 @@ def _est_grundtarif(zve: float, t: dict) -> float:
         return 0.0
     elif zve <= t["z2e"]:
         y = (zve - t["gf"]) / 10000
-        return math.floor((t["a"] * y + t["b"]) * y)
+        return math.floor((t["z2a"] * y + 1400) * y)
     elif zve <= t["z3e"]:
         z = (zve - t["z2e"]) / 10000
-        return math.floor((t["c"] * z + t["d"]) * z + t["e"])
+        return math.floor((t["z3a"] * z + 2397) * z + t["z3const"])
     elif zve <= t["z4e"]:
-        return math.floor(t["r1"] * zve - t["f1"])
+        return math.floor(0.42 * zve - t["z4const"])
     else:
-        return math.floor(t["r2"] * zve - t["f2"])
+        return math.floor(0.45 * zve - t["z5const"])
 
 
 def compute_soli(est: float, year: int, tarif: str = "Splittingtarif") -> float:
@@ -750,10 +764,14 @@ def compute_tax_for_year(year: int, kap_summary: dict) -> dict:
             "sundaram_deemed": round(sundaram_deemed, 2), "sparer_pb": sparer_pb,
             "chosen_path": "below_sparerpb", "reasoning": f"KapErträge EUR {est_kap:.2f} < SparerPB EUR {sparer_pb:.2f}",
             "mehrsteuern_est": 0, "mehrsteuern_soli": 0, "mehrsteuern_total": 0,
-            "net_mehrsteuern": 0, "zinsen_credit": {"total_interest": 0},
+            "wht_creditable": 0, "net_mehrsteuern": 0,
+            "zinsen_233a": {"rate_pa": 0, "rate_monthly": 0, "zinslaufbeginn": "N/A", "payment_date": "N/A", "months": 0, "zinsen": 0},
+            "zinsen_235": {"rate_pa": 0, "rate_monthly": 0, "erlassdatum": "N/A", "payment_date": "N/A", "months": 0, "zinsen": 0},
+            "zinsen_credit": {"total_interest": 0, "credit_233a": 0, "net_235": 0},
             "s398a": {"surcharge": 0, "applies": False}, "year_total": 0,
             "stock_taxable": kap_summary.get("stock_taxable", 0),
             "fund_taxable": kap_summary.get("fund_taxable", 0),
+            "dividends_eur": 0, "tf_effect": 0,
         }
 
     tarif = bescheid.get("tarif", "Splittingtarif")
@@ -973,20 +991,24 @@ def write_year_note(year_result: dict):
     lines.append(f"**Sparerpauschbetrag:** EUR {year_result['sparer_pb']:,.2f}")
     lines.append("")
 
-    lines.append("#### Path Comparison")
-    a = year_result["abgelt"]
-    lines.append(f"**Abgeltungssteuer:** EUR {a['total']:,.2f}")
-    lines.append(f"  Taxable base: EUR {a['taxable_base']:,.2f} x 26.375% = EUR {a['total']:,.2f}")
-    lines.append(f"  (25% ESt EUR {a['est']:,.2f} + 5.5% Soli EUR {a['soli']:,.2f})")
-    lines.append("")
+    if year_result.get("chosen_path") == "below_sparerpb":
+        lines.append(f"**Result:** KapErträge below SparerPB -- EUR 0 Mehrsteuern.")
+        lines.append("")
+    else:
+        lines.append("#### Path Comparison")
+        a = year_result["abgelt"]
+        lines.append(f"**Abgeltungssteuer:** EUR {a['total']:,.2f}")
+        lines.append(f"  Taxable base: EUR {a['taxable_base']:,.2f} x 26.375% = EUR {a['total']:,.2f}")
+        lines.append(f"  (25% ESt EUR {a['est']:,.2f} + 5.5% Soli EUR {a['soli']:,.2f})")
+        lines.append("")
 
-    g = year_result["guenstiger"]
-    lines.append(f"**Guenstigerpruefung:** EUR {g['total']:,.2f}")
-    lines.append(f"  Original zvE EUR {g['bescheid_zve']:,.2f} + KapErtraege EUR {g['taxable_kap']:,.2f} = new zvE EUR {g['new_zve']:,.2f}")
-    lines.append(f"  New ESt: EUR {g['new_est']:,.2f} (was EUR {g['bescheid_est']:,.2f})")
-    lines.append(f"  Additional ESt: EUR {g['additional_est']:,.2f}")
-    lines.append(f"  Soli: EUR {g['new_soli']:,.2f} (was EUR {g['old_soli']:,.2f}), additional: EUR {g['additional_soli']:,.2f}")
-    lines.append("")
+        g = year_result["guenstiger"]
+        lines.append(f"**Guenstigerpruefung:** EUR {g['total']:,.2f}")
+        lines.append(f"  Original zvE EUR {g['bescheid_zve']:,.2f} + KapErtraege EUR {g['taxable_kap']:,.2f} = new zvE EUR {g['new_zve']:,.2f}")
+        lines.append(f"  New ESt: EUR {g['new_est']:,.2f} (was EUR {g['bescheid_est']:,.2f})")
+        lines.append(f"  Additional ESt: EUR {g['additional_est']:,.2f}")
+        lines.append(f"  Soli: EUR {g['new_soli']:,.2f} (was EUR {g['old_soli']:,.2f}), additional: EUR {g['additional_soli']:,.2f}")
+        lines.append("")
 
     lines.append(f"**Chosen:** {year_result['reasoning']}")
     lines.append("")
@@ -1308,7 +1330,8 @@ def main():
     print("  - Stock losses offset stock gains only (no cross-bucket)")
     print("  - 2017: old InvStG §6 Pauschalbesteuerung (intransparenter Fonds)")
     print("  - All config from Bear notes under #acorn/selbstanzeige/config#")
-    print("  - Results written to Bear under #acorn/selbstanzeige/supplementary tax filing#")
+    print("  - Calculations written to Bear under #acorn/selbstanzeige/calculations#")
+    print("  - Reports written to Bear under #acorn/selbstanzeige/final reports#")
     print("=" * 70)
 
 
