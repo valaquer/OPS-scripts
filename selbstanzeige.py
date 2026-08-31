@@ -129,9 +129,10 @@ def find_bear_note_id(title: str, tag: str) -> "str | None":
 
 
 def bear_write_note(title: str, body: str, tag: str):
+    full_body = f"{title}\n#{tag}#\n{body}"
     encoded_title = urllib.parse.quote(title)
     encoded_tag = urllib.parse.quote(tag)
-    encoded_body = urllib.parse.quote(body)
+    encoded_body = urllib.parse.quote(full_body)
     existing_id = find_bear_note_id(title, tag)
     if existing_id:
         write_url = f"bear://x-callback-url/add-text?id={existing_id}&text={encoded_body}&mode=replace_all&open_note=no"
@@ -303,12 +304,17 @@ def load_bear_config():
     india_rows = parse_bear_table(note)
     india = {}
     for r in india_rows:
-        if "Year" in r:
-            year = int(r["Year"])
+        yr_key = "VZ" if "VZ" in r else "Year"
+        if yr_key in r:
+            year = int(r[yr_key])
+            icici_interest = float(r.get("ICICI Interest", r.get("Interest EUR", "0")))
+            sbi_interest = float(r.get("SBI Interest", "0"))
+            icici_tds = float(r.get("ICICI TDS", r.get("TDS EUR", "0")))
+            sundaram = float(r.get("Sundaram", r.get("Sundaram EUR", "0")))
             india[year] = {
-                "interest_eur": float(r.get("Interest EUR", "0")),
-                "tds_eur": float(r.get("TDS EUR", "0")),
-                "sundaram_eur": float(r.get("Sundaram EUR", "0")),
+                "interest_eur": icici_interest + sbi_interest,
+                "tds_eur": icici_tds,
+                "sundaram_eur": sundaram,
             }
     cfg["india"] = india
 
@@ -756,7 +762,29 @@ def compute_tax_for_year(year: int, kap_summary: dict) -> dict:
         sundaram_deemed = india_data.get("sundaram_eur", 0)
         est_kap = kap_summary.get("fund_taxable", 0) + max(0, kap_summary.get("stock_taxable", 0)) + india_interest + sundaram_deemed
         if est_kap >= sparer_pb:
-            return {"year": year, "error": f"No Bescheid baseline for {year} and KapErträge EUR {est_kap:.2f} >= SparerPB EUR {sparer_pb:.2f} -- cannot compute without Bescheid"}
+            taxable = est_kap - sparer_pb
+            abgelt_est = round(taxable * 0.25, 2)
+            abgelt_soli = round(abgelt_est * 0.055, 2)
+            abgelt_total = round(abgelt_est + abgelt_soli, 2)
+            india_tds = india_data.get("tds_eur", 0)
+            return {
+                "year": year, "tarif": "Abgeltungssteuer", "bescheid": {"zve": 0, "est": 0, "soli": 0},
+                "kapitalertraege": round(est_kap, 2), "india_interest": round(india_interest, 2),
+                "india_tds": round(india_tds, 2), "india_dba_credit": 0,
+                "sundaram_deemed": round(sundaram_deemed, 2), "sparer_pb": sparer_pb,
+                "chosen_path": "abgeltungssteuer_no_bescheid",
+                "reasoning": f"No Bescheid -- Abgeltungssteuer only (no Günstigerprüfung without zvE). Taxable EUR {taxable:.2f}",
+                "abgelt": {"total": abgelt_total, "taxable_base": taxable, "est": abgelt_est, "soli": abgelt_soli},
+                "mehrsteuern_est": abgelt_est, "mehrsteuern_soli": abgelt_soli, "mehrsteuern_total": abgelt_total,
+                "wht_creditable": 0, "net_mehrsteuern": abgelt_total,
+                "zinsen_233a": {"rate_pa": 0, "rate_monthly": 0, "zinslaufbeginn": "N/A", "payment_date": "N/A", "months": 0, "zinsen": 0},
+                "zinsen_235": {"rate_pa": 0, "rate_monthly": 0, "erlassdatum": "N/A", "payment_date": "N/A", "months": 0, "zinsen": 0},
+                "zinsen_credit": {"total_interest": 0, "credit_233a": 0, "net_235": 0},
+                "s398a": {"surcharge": 0, "applies": False}, "year_total": abgelt_total,
+                "stock_taxable": kap_summary.get("stock_taxable", 0),
+                "fund_taxable": kap_summary.get("fund_taxable", 0),
+                "dividends_eur": 0, "tf_effect": 0,
+            }
         return {
             "year": year, "tarif": "Grundtarif", "bescheid": {"zve": 0, "est": 0, "soli": 0},
             "kapitalertraege": round(est_kap, 2), "india_interest": round(india_interest, 2),
@@ -993,6 +1021,12 @@ def write_year_note(year_result: dict):
 
     if year_result.get("chosen_path") == "below_sparerpb":
         lines.append(f"**Result:** KapErträge below SparerPB -- EUR 0 Mehrsteuern.")
+        lines.append("")
+    elif year_result.get("chosen_path") == "abgeltungssteuer_no_bescheid":
+        a = year_result["abgelt"]
+        lines.append("#### Abgeltungssteuer (no Bescheid -- Günstigerprüfung not possible)")
+        lines.append(f"**Taxable base:** EUR {a['taxable_base']:,.2f}")
+        lines.append(f"**Abgeltungssteuer:** EUR {a['total']:,.2f} (25% ESt EUR {a['est']:,.2f} + 5.5% Soli EUR {a['soli']:,.2f})")
         lines.append("")
     else:
         lines.append("#### Path Comparison")
@@ -1248,7 +1282,8 @@ def main():
     years = sorted(set(int(g["sell_date"][:4]) for g in all_gains) | set(d["year"] for d in dividends))
     if old_invstg:
         years = sorted(set(years) | {2017})
-    years = [y for y in years if 2017 <= y <= 2024]
+    years = sorted(set(years) | set(range(2016, 2025)))
+    years = [y for y in years if 2016 <= y <= 2024]
 
     kap_summaries = {}
     for year in years:
@@ -1287,11 +1322,14 @@ def main():
     print("=" * 70)
     print()
 
+    empty_kap = {"stock_taxable": 0, "fund_taxable": 0, "stock_gains": 0, "stock_losses": 0,
+                  "stock_net": 0, "stock_div_gross": 0, "stock_div_wht_creditable": 0,
+                  "fund_gains_raw": 0, "fund_gains_after_tf": 0, "fund_div_gross": 0,
+                  "fund_div_taxable": 0, "fund_div_wht_creditable": 0, "vorabpauschale": 0}
     year_results = []
     for year in years:
-        if year not in kap_summaries:
-            continue
-        result = compute_year_total(year, kap_summaries[year])
+        kap = kap_summaries.get(year, empty_kap)
+        result = compute_year_total(year, kap)
         year_results.append(result)
 
         if "error" in result:
