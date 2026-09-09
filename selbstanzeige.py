@@ -85,12 +85,17 @@ def parse_bear_table(text: str) -> list[dict]:
             table_lines.append(stripped)
     if len(table_lines) < 2:
         return []
-    header = [c.strip() for c in table_lines[0].split("|") if c.strip()]
+    header_parts = [c.strip() for c in table_lines[0].split("|")]
+    header = [c for c in header_parts if c]
     rows = []
     for line in table_lines[1:]:
-        cells = [c.strip() for c in line.split("|") if c.strip()]
-        if len(cells) >= len(header):
-            rows.append(dict(zip(header, cells[:len(header)])))
+        parts = [c.strip() for c in line.split("|")]
+        if parts and parts[0] == '':
+            parts = parts[1:]
+        if parts and parts[-1] == '':
+            parts = parts[:-1]
+        if len(parts) >= len(header):
+            rows.append(dict(zip(header, parts[:len(header)])))
     return rows
 
 

@@ -24,12 +24,12 @@
 | 2018 | Stock losses | 0.00 |  | 0.00 |
 | 2018 | Stock dividends | 105.90 |  | 105.90 |
 | 2018 | Stock WHT credit | 15.88 |  |  |
-| 2018 | Fund gains | 286.43 | 0.00 | 286.43 |
+| 2018 | Fund gains | -216.09 | 0.00 | -216.09 |
 | 2018 | Fund dividends | 67.24 |  | 67.24 |
 | 2018 | Fund WHT credit | 10.09 |  |  |
-| 2018 | Vorabpauschale | 0.00 |  | 0.00 |
+| 2018 | Vorabpauschale | 84.02 |  | 84.02 |
 | 2018 | STOCK BUCKET TOTAL |  |  | 547.02 |
-| 2018 | FUND BUCKET TOTAL |  |  | 353.67 |
+| 2018 | FUND BUCKET TOTAL |  |  | -64.83 |
 | 2019 | Stock gains | 4075.84 |  | 4075.84 |
 | 2019 | Stock losses | -755.72 |  | -755.72 |
 | 2019 | Stock dividends | 71.98 |  | 71.98 |
@@ -47,9 +47,9 @@
 | 2020 | Fund gains | 4865.90 | 1459.77 | 3406.13 |
 | 2020 | Fund dividends | 0.00 |  | 0.00 |
 | 2020 | Fund WHT credit | 0.00 |  |  |
-| 2020 | Vorabpauschale | 0.00 |  | 0.00 |
+| 2020 | Vorabpauschale | 14.77 |  | 14.77 |
 | 2020 | STOCK BUCKET TOTAL |  |  | 753.77 |
-| 2020 | FUND BUCKET TOTAL |  |  | 3406.13 |
+| 2020 | FUND BUCKET TOTAL |  |  | 3420.90 |
 | 2021 | Stock gains | 5833.19 |  | 5833.19 |
 | 2021 | Stock losses | 0.00 |  | 0.00 |
 | 2021 | Stock dividends | 0.00 |  | 0.00 |
@@ -77,9 +77,9 @@
 | 2023 | Fund gains | 3064.91 | 919.47 | 2145.44 |
 | 2023 | Fund dividends | 0.00 |  | 0.00 |
 | 2023 | Fund WHT credit | 0.00 |  |  |
-| 2023 | Vorabpauschale | 0.00 |  | 0.00 |
+| 2023 | Vorabpauschale | 338.73 |  | 338.73 |
 | 2023 | STOCK BUCKET TOTAL |  |  | -2722.26 |
-| 2023 | FUND BUCKET TOTAL |  |  | 2145.44 |
+| 2023 | FUND BUCKET TOTAL |  |  | 2484.17 |
 | 2024 | Stock gains | 0.00 |  | 0.00 |
 | 2024 | Stock losses | 0.00 |  | 0.00 |
 | 2024 | Stock dividends | 0.00 |  | 0.00 |
@@ -87,6 +87,6 @@
 | 2024 | Fund gains | 348.71 | 0.00 | 348.71 |
 | 2024 | Fund dividends | 1990.08 |  | 1648.54 |
 | 2024 | Fund WHT credit | 0.00 |  |  |
-| 2024 | Vorabpauschale | 0.00 |  | 0.00 |
+| 2024 | Vorabpauschale | 325.55 |  | 325.55 |
 | 2024 | STOCK BUCKET TOTAL |  |  | 0.00 |
-| 2024 | FUND BUCKET TOTAL |  |  | 1997.25 |
+| 2024 | FUND BUCKET TOTAL |  |  | 2322.80 |
