@@ -1196,7 +1196,15 @@ def write_csv_outputs(txns: list[dict], all_gains: list[dict], kap_summaries: di
         w = csv.writer(f)
         w.writerow(["Sell Date", "ISIN", "Qty Sold", "Sale Proceeds EUR",
                     "Buy Date (FIFO)", "Qty from Tranche", "Tranche Cost EUR", "Gain/Loss EUR"])
-        for g in sorted(all_gains, key=lambda x: (x["sell_date"], x["isin"])):
+        sorted_gains = sorted(all_gains, key=lambda x: (x["sell_date"], x["isin"]))
+        fd_written = False
+        for g in sorted_gains:
+            if not fd_written and g["sell_date"] >= "2018-01-01":
+                w.writerow(["2017-12-31", "US78462F1030 (SPY)", "62.0000",
+                           "13796.00", "InvStG §56 fictional disposal",
+                           "62.0000", "13293.29 → 13796.00",
+                           "COST BASIS RESET"])
+                fd_written = True
             w.writerow([g["sell_date"], g["isin"], f"{g['qty']:.4f}",
                        f"{g['proceeds']:.2f}", g["buy_date"], f"{g['qty']:.4f}",
                        f"{g['cost']:.2f}", f"{g['gain']:.2f}"])
