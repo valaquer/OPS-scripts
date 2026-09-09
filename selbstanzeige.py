@@ -1164,6 +1164,65 @@ def write_detailed_summary(year_results: list[dict]):
     print(f"  Bear note written: {title}", file=sys.stderr)
 
 
+def write_csv_outputs(txns: list[dict], all_gains: list[dict], kap_summaries: dict,
+                      ecb_rates: dict, year_results: list[dict]):
+    """Write three CSV files for lawyer presentation and QA."""
+    output_dir = Path(__file__).parent / "output"
+    output_dir.mkdir(exist_ok=True)
+
+    # Output 1: All DEGIRO transactions in EUR
+    with open(output_dir / "01_transactions_eur.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Date", "ISIN", "Buy/Sell", "Qty", "USD Price", "ECB Rate (EUR/USD)", "EUR Amount", "Fees EUR"])
+        for txn in txns:
+            if not txn["isin"]:
+                continue
+            side = "BUY" if txn["qty"] > 0 else "SELL"
+            usd_price = txn["price"] if txn["price_ccy"] == "USD" else ""
+            ecb_rate = ""
+            eur_amount = txn["value_eur"]
+            if txn["price_ccy"] == "USD" and txn["local_value"] != 0:
+                rate = get_ecb_rate(ecb_rates, txn["date"])
+                ecb_rate = f"{rate:.6f}"
+                if eur_amount == 0:
+                    eur_amount = convert_to_eur(abs(txn["local_value"]), ecb_rates, txn["date"])
+            w.writerow([txn["date"], txn["isin"], side, abs(txn["qty"]),
+                       f"{usd_price}" if usd_price else "", ecb_rate,
+                       f"{abs(eur_amount):.2f}", f"{abs(txn['fees_eur']):.2f}"])
+    print(f"  Written: {output_dir / '01_transactions_eur.csv'}")
+
+    # Output 2: FIFO audit trail
+    with open(output_dir / "02_fifo_audit.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Sell Date", "ISIN", "Qty Sold", "Sale Proceeds EUR",
+                    "Buy Date (FIFO)", "Qty from Tranche", "Tranche Cost EUR", "Gain/Loss EUR"])
+        for g in sorted(all_gains, key=lambda x: (x["sell_date"], x["isin"])):
+            w.writerow([g["sell_date"], g["isin"], f"{g['qty']:.4f}",
+                       f"{g['proceeds']:.2f}", g["buy_date"], f"{g['qty']:.4f}",
+                       f"{g['cost']:.2f}", f"{g['gain']:.2f}"])
+    print(f"  Written: {output_dir / '02_fifo_audit.csv'}")
+
+    # Output 3: Per-year KAP breakdown
+    with open(output_dir / "03_kap_breakdown.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["Year", "Component", "Gross EUR", "TF Reduction EUR", "Taxable EUR"])
+        for year in sorted(kap_summaries.keys()):
+            s = kap_summaries[year]
+            w.writerow([year, "Stock gains", f"{s['stock_gains']:.2f}", "", f"{s['stock_gains']:.2f}"])
+            w.writerow([year, "Stock losses", f"{s['stock_losses']:.2f}", "", f"{s['stock_losses']:.2f}"])
+            w.writerow([year, "Stock dividends", f"{s['stock_div_gross']:.2f}", "", f"{s['stock_div_gross']:.2f}"])
+            w.writerow([year, "Stock WHT credit", f"{s['stock_div_wht_creditable']:.2f}", "", ""])
+            tf_reduction = s['fund_gains_raw'] - s['fund_gains_after_tf']
+            w.writerow([year, "Fund gains", f"{s['fund_gains_raw']:.2f}", f"{tf_reduction:.2f}", f"{s['fund_gains_after_tf']:.2f}"])
+            w.writerow([year, "Fund dividends", f"{s['fund_div_gross']:.2f}", "", f"{s['fund_div_taxable']:.2f}"])
+            w.writerow([year, "Fund WHT credit", f"{s['fund_div_wht_creditable']:.2f}", "", ""])
+            w.writerow([year, "Vorabpauschale", f"{s['vorabpauschale']:.2f}", "", f"{s['vorabpauschale']:.2f}"])
+            w.writerow([year, "STOCK BUCKET TOTAL", "", "", f"{s['stock_taxable']:.2f}"])
+            w.writerow([year, "FUND BUCKET TOTAL", "", "", f"{s['fund_taxable']:.2f}"])
+            w.writerow([])
+    print(f"  Written: {output_dir / '03_kap_breakdown.csv'}")
+
+
 def write_input_data_note(all_gains: list[dict], dividends: list[dict], ecb_rates_used: set):
     title = "Input Data -- DEGIRO Transactions"
     lines = []
@@ -1344,6 +1403,12 @@ def main():
     grand_total = sum(r.get("year_total", 0) for r in year_results if "error" not in r)
     print()
     print(f"  GRAND TOTAL: EUR {grand_total:,.2f}")
+    print()
+
+    # ── Write CSV outputs for lawyer ──
+
+    print("Writing CSV outputs...", file=sys.stderr)
+    write_csv_outputs(txns, all_gains, kap_summaries, ecb_rates, year_results)
     print()
 
     # ── Write to Bear ──
