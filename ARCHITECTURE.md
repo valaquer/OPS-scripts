@@ -1,6 +1,6 @@
 # OPS-scripts — Architecture
 
-Last updated: 2026-08-15
+Last updated: 2026-09-09
 
 ---
 
@@ -53,7 +53,14 @@ library/scripts/                          # Repo root (valaquer/OPS-scripts)
 ├── mcp-bear/
 │   └── server.py                       # ACTIVE — Bear MCP server (6 tools: read, list, write, create, edit, delete)
 ├── launchd/
-│   └── com.honeybloom.bear-watcher.plist  # ACTIVE — Launchd plist for Bear watcher (KeepAlive)
+│   ├── com.honeybloom.bear-watcher.plist  # ACTIVE — Launchd plist for Bear watcher (KeepAlive)
+│   ├── com.honeybloom.whiteboard.plist    # ACTIVE — Launchd plist for Whiteboard server (KeepAlive)
+│   └── com.honeybloom.whiteboard-watcher.plist # ACTIVE — Launchd plist for Whiteboard watcher
+├── mcp-whiteboard/
+│   └── server.py                       # ACTIVE — Whiteboard management MCP (5 tools: list, open, new, delete, rename)
+├── whiteboard-watcher.py               # ACTIVE — Whiteboard change watcher (hash-based, notifications disabled)
+├── selbstanzeige.py                    # ACTIVE — Acorn FIFO recalculation engine (Bear input, CSV/PDF output)
+├── sync-postal-mail.sh                 # ACTIVE — Bidirectional postal-mail sync via Unison (launchd, 5s interval)
 ├── mirror-system-config.sh            # LEGACY — System config mirror
 ├── setup-from-drive.sh                # ACTIVE — Setup from Google Drive backup
 ├── transfer-to-drive.sh              # ACTIVE — Transfer to Google Drive backup
@@ -230,10 +237,74 @@ mcp-bear/server.py
   ├── 6 tools: bear_read, bear_list, bear_write, bear_create, bear_edit, bear_delete
   ├── reads: iMac Bear DB via SSH (bear_read, bear_list)
   ├── writes: iMac Bear via SSH x-callback-url with -g flag (bear_write, bear_create, bear_edit, bear_delete)
-  ├── bear_create: checks for existing title before creating (duplicate prevention, fcntl file lock)
+  ├── bear_create: creates note via x-callback-url, body via add-text mode=append (REQ-38 fix)
   ├── writes: write ledger (/var/tmp/bear-write-ledger.json) for attribution
   ├── dedicated venv: mcp-bear/.venv (Python 3.14, MCP v1.x -- v2 dropped fastmcp)
   └── registered in: all 23 teammates' .mcp.json (mcpServers.honeybloom-bear)
+```
+
+### 8. Whiteboard Cluster
+
+```
+Whiteboard server (launchd: com.honeybloom.whiteboard)
+  ├── npm package: mcp-excalidraw-server@1.1.0 (global install)
+  ├── port: 51850 (LAN-accessible at 192.168.0.186:51850)
+  ├── HOST=0.0.0.0, PORT=51850 env vars
+  ├── auto-save: 30s to library/whiteboard/ via wrapper script
+  ├── canvas files: library/whiteboard/*.excalidraw
+  ├── active canvas tracking: library/whiteboard/.active
+  ├── switch race prevention: library/whiteboard/.switching lock
+  └── UI customizations: dist/frontend/index.html (fragile -- npm update reverts, version pinned)
+      ├── REQ-23: title "Whiteboard" (was "Excalidraw")
+      ├── REQ-25: header hidden, canvas full-height, footer-center hidden
+      └── REQ-35: toolbar vertical left (CSS Grid override + MutationObserver JS),
+                  Library/hint/zoom/undo removed, help + cache code bottom-left
+
+mcp-whiteboard/server.py (honeybloom-whiteboard-mgmt)
+  ├── 5 tools: list, open, new, delete, rename canvases
+  ├── REST API to whiteboard server (localhost:51850)
+  ├── active-canvas tracking via .active file
+  ├── switch race prevention via .switching lock
+  └── registered in: all 23 teammates' .mcp.json
+
+honeybloom-whiteboard MCP (drawing tools -- community package)
+  ├── 26 tools: create/update/delete elements, export, screenshot, Mermaid conversion
+  ├── EXPRESS_SERVER_URL=http://localhost:51850
+  ├── EXCALIDRAW_NO_AUTOSTART=true (uses persistent server, not per-session)
+  └── registered in: all 23 teammates' .mcp.json
+
+whiteboard-watcher.py
+  ├── polls library/whiteboard/*.excalidraw for hash-based changes
+  ├── write ledger for attribution (/var/tmp/whiteboard-write-ledger.json)
+  ├── notifications DISABLED (Boss directive Aug 18 -- commented out, restorable)
+  └── managed by: launchd (com.honeybloom.whiteboard-watcher, KeepAlive)
+```
+
+### 9. Acorn Cluster
+
+```
+selbstanzeige.py
+  ├── reads: iMac Bear DB via SSH (ControlMaster at /tmp/bear-watcher-ssh)
+  │   ├── config notes: tagged #selbstanzeige (transaction config, tax rates, Basiszins)
+  │   └── DEGIRO CSV data: tagged #selbstanzeige
+  ├── reads: ECB daily exchange rates (Bundesbank API, HTTP)
+  ├── writes: CSV + PDF output to felix/postal-mail/ (3 files: transactions, FIFO audit trail, KAP breakdown)
+  ├── writes: iMac Bear via x-callback-url (summary notes)
+  ├── parses: Bear markdown tables (section parser for multi-table notes)
+  │   └── known issue: empty cells must not be filtered (REQ-48 fix -- `if c.strip()` silently drops rows)
+  └── depends: /usr/bin/python3 (no venv, stdlib only)
+```
+
+### 10. Postal-Mail Sync Cluster
+
+```
+sync-postal-mail.sh
+  ├── syncs: felix/postal-mail/ ↔ iMac ~/postal-mail/ (bidirectional via Unison)
+  ├── requires: /opt/homebrew/bin/unison on both machines
+  ├── ignores: .DS_Store, .venv*, .opencode*, .playwright*, .claude, .accounts.json, .gauth.json, .mcp.json, .oauth2*
+  ├── SSH: iMac via ~/.ssh/id_mini (ConnectTimeout=3)
+  └── managed by: launchd (com.honeybloom.postal-mail-sync, 5s interval)
+      └── plist at ~/Library/LaunchAgents/ (not tracked in repo launchd/ dir)
 ```
 
 ---
@@ -279,9 +350,15 @@ Medusa handles 3 functions natively via OpenCode's plugin system:
 | Kitty socket (/tmp/honeybloom-kitty-*.sock) | kitty-open-teammate.sh, close-tabs.py, failover scripts, statusline-huddles.sh | Tab discovery and management |
 | livemirror-global flag (`library/aether/livemirror-global`) | aether-relay.sh | Live mirror on/off |
 | REMINDERS.md (per teammate dir) | reminder-agent.sh | Scheduled reminders |
-| iMac Bear DB (via SSH) | bear-watcher.py, mcp-bear/server.py | Note content, change detection, read queries |
+| iMac Bear DB (via SSH) | bear-watcher.py, mcp-bear/server.py, selbstanzeige.py | Note content, change detection, read queries, tax config |
 | Write ledger (`/var/tmp/bear-write-ledger.json`) | bear-watcher.py (consume), mcp-bear/server.py (write) | Attribution of MCP writes vs Boss edits |
-| iMac x-callback-url (via SSH) | mcp-bear/server.py | Bear write/create/edit/delete operations |
+| iMac x-callback-url (via SSH) | mcp-bear/server.py, selbstanzeige.py | Bear write/create/edit/delete operations, summary output |
+| Whiteboard server (localhost:51850) | mcp-whiteboard/server.py, whiteboard-watcher.py | Canvas CRUD, REST API |
+| Canvas files (`library/whiteboard/*.excalidraw`) | whiteboard-watcher.py (read), whiteboard server (read/write) | Diagram storage |
+| Whiteboard write ledger (`/var/tmp/whiteboard-write-ledger.json`) | whiteboard-watcher.py (consume), MCP (write) | Attribution |
+| Whiteboard frontend (`dist/frontend/index.html`) | Browser (Boss) | UI customizations (REQ-23, 25, 35) -- npm-managed, version pinned |
+| ECB daily exchange rates (Bundesbank API) | selbstanzeige.py | EUR/USD conversion for DEGIRO transactions |
+| `felix/postal-mail/` | sync-postal-mail.sh, selbstanzeige.py (output) | Bidirectional sync target, CSV/PDF output destination |
 
 ### Canonical configuration
 
@@ -309,6 +386,11 @@ Janus has one tracked source of truth: `library/scripts/janus-config.csv`. Lifec
 | watermark.py | PyTorch, videoseal | Dante/Sierra workflow |
 | bear-watcher.py | iMac SSH (ControlMaster), Aether /api/message, /api/rooms | launchd agent (com.honeybloom.bear-watcher) |
 | mcp-bear/server.py | iMac SSH, x-callback-url, write ledger | All 23 teammates' .mcp.json (honeybloom-bear) |
+| mcp-whiteboard/server.py | Whiteboard server REST API (localhost:51850) | All 23 teammates' .mcp.json (honeybloom-whiteboard-mgmt) |
+| whiteboard-watcher.py | Canvas files (library/whiteboard/), write ledger | launchd agent (com.honeybloom.whiteboard-watcher) |
+| Whiteboard frontend (index.html) | npm package dist/frontend/ | Boss via Safari (192.168.0.186:51850). Fragile: npm update reverts. |
+| selbstanzeige.py | iMac SSH, Bear DB, ECB API | Felix/Jake (via skill), CSV/PDF to felix/postal-mail/ |
+| sync-postal-mail.sh | Unison, iMac SSH (id_mini) | launchd agent (com.honeybloom.postal-mail-sync), felix/postal-mail/ |
 
 ---
 
@@ -322,3 +404,7 @@ Janus has one tracked source of truth: `library/scripts/janus-config.csv`. Lifec
 | Bear watcher requires Python 3.9 compat | Low | Launchd uses /usr/bin/python3 (3.9.6). No PEP 604 union types (`str | None`), use string annotations instead. |
 | Bear reads require iMac SSH (TCC constraint) | Medium | macOS TCC blocks launchd from reading Mini's local Bear DB (`~/Library/Group Containers/`). All reads go via SSH to iMac. |
 | Shared SSH ControlMaster socket | Low | bear-watcher.py and mcp-bear/server.py share `/tmp/bear-watcher-ssh`. Connection pooling benefit but single point of failure for SSH. |
+| Whiteboard UI customizations fragile | Medium | REQ-23, 25, 35 all modify `dist/frontend/index.html` in the npm package. Any `npm update` reverts all changes. Version pinned, but no re-application script. |
+| Postal-mail sync plist not tracked | Low | com.honeybloom.postal-mail-sync.plist lives in ~/Library/LaunchAgents/, not in repo launchd/ dir. |
+| selbstanzeige.py Bear parser fragile | Medium | Table parser sensitive to empty cells and multi-table notes. REQ-48 fixed `if c.strip()` silent row drop but no row-count assertion yet (OJT 31). |
+| mcp-spreadsheet/ untracked | Low | REQ-40 scaffolded but deprioritized. Untracked directory in repo. |
