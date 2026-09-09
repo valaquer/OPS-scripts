@@ -8,7 +8,7 @@ SSH_KEY="/Users/deepak-macmini/.ssh/id_mini"
 LOCAL_DIR="/Users/deepak-macmini/honeybloom/felix/postal-mail/"
 
 # iMac → Mini (Boss puts file, Felix sees it)
-rsync -a --delete \
+rsync -a \
   -e "ssh -i $SSH_KEY -o ConnectTimeout=3 -o StrictHostKeyChecking=no" \
   "${IMAC_USER}@${IMAC_IP}:~/postal-mail/" \
   "$LOCAL_DIR" 2>/dev/null
